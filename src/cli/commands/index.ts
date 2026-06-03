@@ -4,6 +4,10 @@ import { profileCommand } from "./profile.js";
 import { linkCommand } from "./link.js";
 import { storeCommand } from "./store.js";
 import { productCommand } from "./product.js";
+import { appCommand } from "./app.js";
+import { postCommand } from "./post.js";
+import { socialCommand } from "./social.js";
+import { msgCommand } from "./msg.js";
 
 const whoamiCommand: CommandHandler = async ({ client }) => {
   const data = await client.profile.get();
@@ -17,5 +21,13 @@ export const dataCommands: Record<string, CommandHandler> = {
   link: linkCommand,
   store: storeCommand,
   product: productCommand,
+  app: appCommand,
+  post: postCommand,
+  msg: msgCommand,
+  follow: socialCommand,
+  unfollow: socialCommand,
+  feed: socialCommand,
+  followers: socialCommand,
+  following: socialCommand,
 };
 export type { ProfileClient };
