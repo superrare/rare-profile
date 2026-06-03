@@ -11,7 +11,6 @@ const CheckUsernameSchema = z.object({
 export interface ProfileUpdate {
   bio?: string; website?: string; twitter?: string; instagram?: string;
   telegram?: string; farcaster?: string; theme?: string; display_name?: string;
-  [key: string]: unknown;
 }
 
 export interface FeaturedNft { chain: string; contract: string; tokenId: string; imageUrl?: string }

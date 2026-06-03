@@ -9,14 +9,14 @@ export interface TransportOptions {
 }
 
 export interface Transport {
-  post<T>(action: string, params: Record<string, unknown>, schema: ZodType<T>): Promise<T>;
+  post<T>(action: string, params: object, schema: ZodType<T>): Promise<T>;
 }
 
 export function createTransport(opts: TransportOptions): Transport {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const url = `${opts.baseUrl.replace(/\/$/, "")}/api/commerce`;
 
-  async function send(action: string, params: Record<string, unknown>, token: string | null): Promise<Response> {
+  async function send(action: string, params: object, token: string | null): Promise<Response> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
     return fetchImpl(url, {
