@@ -2,6 +2,9 @@ import { createTransport, type Transport } from "./transport.js";
 import { createAuth } from "./auth.js";
 import { ProfileAuthError } from "./errors.js";
 import { makeProfileDomain } from "./domains/profile.js";
+import { makeLinksDomain } from "./domains/links.js";
+import { makeStorefrontsDomain } from "./domains/storefronts.js";
+import { makeProductsDomain } from "./domains/products.js";
 
 export interface ProfileClientOptions {
   baseUrl: string;
@@ -34,6 +37,9 @@ export function createProfileClient(opts: ProfileClientOptions) {
     /** Set/replace the PAT after a login flow. */
     setToken(next: string) { pat = next; jwt = null; },
     profile: makeProfileDomain(transport),
+    links: makeLinksDomain(transport),
+    storefronts: makeStorefrontsDomain(transport),
+    products: makeProductsDomain(transport),
     // Later domains are spread in here in Tasks 6–14.
   };
 }
