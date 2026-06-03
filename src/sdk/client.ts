@@ -5,6 +5,9 @@ import { makeProfileDomain } from "./domains/profile.js";
 import { makeLinksDomain } from "./domains/links.js";
 import { makeStorefrontsDomain } from "./domains/storefronts.js";
 import { makeProductsDomain } from "./domains/products.js";
+import { makeAppsDomain } from "./domains/apps.js";
+import { makePostsDomain } from "./domains/posts.js";
+import { makeSocialDomain } from "./domains/social.js";
 
 export interface ProfileClientOptions {
   baseUrl: string;
@@ -40,6 +43,9 @@ export function createProfileClient(opts: ProfileClientOptions) {
     links: makeLinksDomain(transport),
     storefronts: makeStorefrontsDomain(transport),
     products: makeProductsDomain(transport),
+    apps: makeAppsDomain(transport),
+    posts: makePostsDomain(transport),
+    social: makeSocialDomain(transport),
     // Later domains are spread in here in Tasks 6–14.
   };
 }
