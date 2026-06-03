@@ -69,7 +69,7 @@ Every command supports a `--json` flag (or set `RARE_PROFILE_JSON=1` in the envi
 **Error shape:**
 
 ```json
-{ "ok": false, "command": "profile", "error": { "code": "API_ERROR", "message": "...", "status": 404 } }
+{ "ok": false, "command": "profile", "error": { "code": "api_error", "message": "...", "status": 404 } }
 ```
 
 **Exit codes:**

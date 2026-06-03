@@ -17,7 +17,7 @@ export const eventsCommand: CommandHandler = async ({ client, args }) => {
       const idsFlag = flags["ids"] as string | undefined;
       const input: { eventIds?: string[] } = {};
       if (idsFlag) {
-        input.eventIds = idsFlag.split(",");
+        input.eventIds = idsFlag.split(",").map(s => s.trim()).filter(Boolean);
       }
       const data = await client.events.markRead(input);
       return { data, human: () => "Marked read." };

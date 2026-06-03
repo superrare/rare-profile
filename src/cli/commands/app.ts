@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import { basename } from "node:path";
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, readFileBytes } from "./registry.js";
 
 export const appCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
@@ -16,7 +14,7 @@ export const appCommand: CommandHandler = async ({ client, args }) => {
       if (!storefrontId || !title || price === undefined || !zipPath) {
         throw new UsageError("app deploy requires --store, --title, --price, and --zip <path>");
       }
-      const bytes = new Uint8Array(readFileSync(zipPath));
+      const bytes = readFileBytes(zipPath);
       const data = await client.apps.add({
         storefrontId,
         title,
@@ -32,7 +30,7 @@ export const appCommand: CommandHandler = async ({ client, args }) => {
       const zipPath = flags.zip as string | undefined;
       if (!id) throw new UsageError("app update requires a product ID: rare-profile app update <id> --zip <path>");
       if (!zipPath) throw new UsageError("app update requires --zip <path>");
-      const bytes = new Uint8Array(readFileSync(zipPath));
+      const bytes = readFileBytes(zipPath);
       const data = await client.apps.update({
         productId: id,
         bytes,

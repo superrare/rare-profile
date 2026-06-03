@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, readFileBytes } from "./registry.js";
 
 export const productCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
@@ -18,7 +17,7 @@ export const productCommand: CommandHandler = async ({ client, args }) => {
       const filePath = flags.file as string | undefined;
       let data: unknown;
       if (filePath) {
-        const bytes = new Uint8Array(readFileSync(filePath));
+        const bytes = readFileBytes(filePath);
         data = await client.products.addWithFile({
           storefrontId,
           title,

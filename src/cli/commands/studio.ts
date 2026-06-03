@@ -1,5 +1,5 @@
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, numFlag } from "./registry.js";
 
 export const studioCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
@@ -22,7 +22,7 @@ export const studioCommand: CommandHandler = async ({ client, args }) => {
       if (flags.aspect !== undefined) input.aspectRatio = flags.aspect as string;
       if (flags.quality !== undefined) input.quality = flags.quality as string;
       if (flags.style !== undefined) input.stylePreset = flags.style as string;
-      if (flags.count !== undefined) input.count = Number(flags.count);
+      if (flags.count !== undefined) input.count = numFlag(flags.count as string | boolean | undefined, "count");
       if (flags.project !== undefined) input.projectId = flags.project as string;
       const data = await client.studio.generateImage(input);
       return { data, human: () => "Image run created." };

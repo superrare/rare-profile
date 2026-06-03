@@ -1,5 +1,5 @@
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, numFlag } from "./registry.js";
 
 // NOTE: social dispatches on positionals[0] (the group name is the verb itself)
 export const socialCommand: CommandHandler = async ({ client, args }) => {
@@ -23,7 +23,7 @@ export const socialCommand: CommandHandler = async ({ client, args }) => {
 
     case "feed": {
       const input: { limit?: number } = {};
-      if (flags.limit !== undefined) input.limit = Number(flags.limit);
+      if (flags.limit !== undefined) input.limit = numFlag(flags.limit as string | boolean | undefined, "limit");
       const data = await client.social.feed(input);
       return { data, human: () => "Feed." };
     }

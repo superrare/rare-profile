@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, numFlag, readFileBytes } from "./registry.js";
 
 export const postCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
@@ -22,7 +21,7 @@ export const postCommand: CommandHandler = async ({ client, args }) => {
       if (text !== undefined) input.content = text;
       if (flags.store !== undefined) input.storefrontId = flags.store as string;
       if (mediaPath !== undefined) {
-        const bytes = new Uint8Array(readFileSync(mediaPath));
+        const bytes = readFileBytes(mediaPath);
         input.media = {
           fileName: basename(mediaPath),
           bytes,
@@ -44,7 +43,7 @@ export const postCommand: CommandHandler = async ({ client, args }) => {
       const input: { storefrontId?: string; profileId?: string; limit?: number } = {};
       if (flags.store !== undefined) input.storefrontId = flags.store as string;
       if (flags.profile !== undefined) input.profileId = flags.profile as string;
-      if (flags.limit !== undefined) input.limit = Number(flags.limit);
+      if (flags.limit !== undefined) input.limit = numFlag(flags.limit as string | boolean | undefined, "limit");
       const data = await client.posts.list(input);
       return { data, human: () => "Posts." };
     }

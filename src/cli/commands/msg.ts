@@ -1,5 +1,5 @@
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, numFlag } from "./registry.js";
 
 export const msgCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
@@ -18,7 +18,7 @@ export const msgCommand: CommandHandler = async ({ client, args }) => {
 
     case "inbox": {
       const input: { limit?: number } = {};
-      if (flags.limit !== undefined) input.limit = Number(flags.limit);
+      if (flags.limit !== undefined) input.limit = numFlag(flags.limit as string | boolean | undefined, "limit");
       const data = await client.messages.inbox(input);
       return { data, human: () => "Inbox." };
     }
@@ -27,7 +27,7 @@ export const msgCommand: CommandHandler = async ({ client, args }) => {
       const partnerId = args.positionals[2];
       if (!partnerId) throw new UsageError("msg read requires a partner ID: rare-profile msg read <partnerId>");
       const input: { partnerId: string; limit?: number } = { partnerId };
-      if (flags.limit !== undefined) input.limit = Number(flags.limit);
+      if (flags.limit !== undefined) input.limit = numFlag(flags.limit as string | boolean | undefined, "limit");
       const data = await client.messages.conversation(input);
       return { data, human: () => "Conversation." };
     }

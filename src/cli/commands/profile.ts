@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import type { CommandHandler } from "./registry.js";
-import { UsageError } from "./registry.js";
+import { UsageError, readFileBytes } from "./registry.js";
 import type { ProfileUpdate } from "../../sdk/domains/profile.js";
 
 export const profileCommand: CommandHandler = async ({ client, args }) => {
@@ -40,7 +39,7 @@ export const profileCommand: CommandHandler = async ({ client, args }) => {
     case "set-avatar": {
       const path = args.positionals[2];
       if (!path) throw new UsageError("set-avatar requires a file path: rare-profile profile set-avatar <path>");
-      const bytes = new Uint8Array(readFileSync(path));
+      const bytes = readFileBytes(path);
       const data = await client.profile.setAvatar({ fileName: basename(path), bytes });
       return { data, human: () => "Avatar updated." };
     }
@@ -48,7 +47,7 @@ export const profileCommand: CommandHandler = async ({ client, args }) => {
     case "set-banner": {
       const path = args.positionals[2];
       if (!path) throw new UsageError("set-banner requires a file path: rare-profile profile set-banner <path>");
-      const bytes = new Uint8Array(readFileSync(path));
+      const bytes = readFileBytes(path);
       const data = await client.profile.setBanner({ fileName: basename(path), bytes });
       return { data, human: () => "Banner updated." };
     }

@@ -25,5 +25,5 @@ export const LinkSchema = z.object({
 }).passthrough();
 export type Link = z.infer<typeof LinkSchema>;
 
-/** Generic acknowledgement payloads, e.g. { deleted: true }. */
-export const AckSchema = z.record(z.string(), z.unknown());
+/** Generic acknowledgement payloads, e.g. { deleted: true } or array responses from list endpoints. */
+export const AckSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]);

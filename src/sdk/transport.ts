@@ -1,5 +1,5 @@
 import type { ZodType } from "zod";
-import { ProfileApiError } from "./errors.js";
+import { ProfileApiError, ProfileAuthError } from "./errors.js";
 
 export interface TransportOptions {
   baseUrl: string;
@@ -32,6 +32,9 @@ export function createTransport(opts: TransportOptions): Transport {
     if (res.status === 401) {
       const fresh = await opts.refresh();
       res = await send(path, action, params, fresh);
+      if (res.status === 401) {
+        throw new ProfileAuthError("Authentication failed after token refresh. Run `rare-profile login`.");
+      }
     }
     const text = await res.text();
     let json: unknown;
