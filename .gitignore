@@ -1,3 +1,5 @@
 # Local design/spec notes — kept out of the public repo
 /docs/PROFILE_SDK_CLI_OUTLINE.md
 /docs/superpowers/
+node_modules/
+dist/
