@@ -8,6 +8,9 @@ import { makeProductsDomain } from "./domains/products.js";
 import { makeAppsDomain } from "./domains/apps.js";
 import { makePostsDomain } from "./domains/posts.js";
 import { makeSocialDomain } from "./domains/social.js";
+import { makeMessagesDomain } from "./domains/messages.js";
+import { makeAnalyticsDomain } from "./domains/analytics.js";
+import { makeEventsDomain } from "./domains/events.js";
 
 export interface ProfileClientOptions {
   baseUrl: string;
@@ -46,7 +49,10 @@ export function createProfileClient(opts: ProfileClientOptions) {
     apps: makeAppsDomain(transport),
     posts: makePostsDomain(transport),
     social: makeSocialDomain(transport),
-    // Later domains are spread in here in Tasks 6–14.
+    messages: makeMessagesDomain(transport),
+    analytics: makeAnalyticsDomain(transport),
+    events: makeEventsDomain(transport),
+    // studio domain wired in a later task.
   };
 }
 
