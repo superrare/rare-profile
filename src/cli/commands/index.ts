@@ -8,6 +8,9 @@ import { appCommand } from "./app.js";
 import { postCommand } from "./post.js";
 import { socialCommand } from "./social.js";
 import { msgCommand } from "./msg.js";
+import { statsCommand } from "./stats.js";
+import { eventsCommand } from "./events.js";
+import { studioCommand } from "./studio.js";
 
 const whoamiCommand: CommandHandler = async ({ client }) => {
   const data = await client.profile.get();
@@ -29,5 +32,8 @@ export const dataCommands: Record<string, CommandHandler> = {
   feed: socialCommand,
   followers: socialCommand,
   following: socialCommand,
+  stats: statsCommand,
+  events: eventsCommand,
+  studio: studioCommand,
 };
 export type { ProfileClient };
