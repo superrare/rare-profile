@@ -19,7 +19,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rolldown -c rolldown.config.ts",
+    "build": "rolldown -c rolldown.config.ts && chmod +x dist/bin.js",
     "test": "node --import tsx/esm --test",
     "typecheck": "tsc --noEmit"
   },
@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "rolldown": "latest",
+    "rolldown-plugin-dts": "^0.25.2",
     "tsx": "^4.22.4",
     "typescript": "^5.6.0"
   }

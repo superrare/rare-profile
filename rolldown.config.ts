@@ -1,10 +1,12 @@
 import { defineConfig } from "rolldown";
+import { dts } from "rolldown-plugin-dts";
 
 export default defineConfig([
   {
-    input: "src/sdk/index.ts",
-    output: { file: "dist/index.js", format: "esm" },
+    input: { index: "src/sdk/index.ts" },
+    output: { dir: "dist", format: "esm" },
     platform: "node",
+    plugins: [dts()],
   },
   {
     input: "src/cli/bin.ts",
