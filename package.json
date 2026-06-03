@@ -3,19 +3,33 @@
   "version": "0.0.0",
   "description": "Wallet-less CLI + SDK for managing a rare.xyz profile",
   "type": "module",
-  "engines": { "node": ">=20" },
-  "bin": { "rare-profile": "dist/bin.js" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "rare-profile": "dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
-    "test": "node --test",
+    "test": "node --import tsx/esm --test",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": { "zod": "^3.23.8" },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "rolldown": "latest",
-    "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "tsx": "^4.22.4",
+    "typescript": "^5.6.0"
   }
 }
