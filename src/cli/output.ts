@@ -16,6 +16,7 @@ export function renderError(command: string, error: CliErrorShape, opts: RenderE
 export function classifyError(err: unknown): { shape: CliErrorShape; exitCode: number } {
   const name = (err as { name?: string })?.name;
   const message = err instanceof Error ? err.message : String(err);
+  if (name === "UsageError") return { shape: { code: "usage", message }, exitCode: 2 };
   if (name === "ProfileAuthError") return { shape: { code: "auth_required", message }, exitCode: 3 };
   if (name === "ProfileApiError") {
     const status = (err as { status?: number }).status;

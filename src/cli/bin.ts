@@ -4,7 +4,7 @@ import { renderSuccess, renderError, classifyError } from "./output.js";
 import { createProfileClient } from "../sdk/index.js";
 import { runLogin } from "./commands/login.js";
 import { runLogout } from "./commands/logout.js";
-import { runWhoami } from "./commands/whoami.js";
+import { dataCommands } from "./commands/index.js";
 
 const DEFAULT_BASE_URL = "https://rare.xyz";
 
@@ -29,18 +29,15 @@ async function main() {
       return;
     }
 
-    // Authenticated commands need a token.
+    const handler = dataCommands[command];
+    if (!handler) {
+      throw Object.assign(new Error(`Unknown command: ${command}`), { name: "UsageError" });
+    }
     if (!cfg) { throw Object.assign(new Error("Not authenticated. Run `rare-profile login`."), { name: "ProfileAuthError" }); }
     const client = createProfileClient({ baseUrl, token: cfg.token });
-
-    if (command === "whoami") {
-      const data = await runWhoami(client);
-      process.stdout.write(renderSuccess("whoami", data, { json, human: (d) => `@${(d as { username?: string }).username ?? "?"} (${(d as { id: string }).id})` }) + "\n");
-      return;
-    }
-
-    // Further commands wired in Task 22.
-    throw Object.assign(new Error(`Unknown command: ${command}`), { name: "UsageError" });
+    const result = await handler({ client, args: { positionals, flags }, json, baseUrl });
+    process.stdout.write(renderSuccess(command, result.data, { json, human: result.human }) + "\n");
+    return;
   } catch (err) {
     const { shape, exitCode } = classifyError(err);
     process.stdout.write(renderError(command, shape, { json }) + "\n");
