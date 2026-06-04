@@ -1,6 +1,6 @@
 {
   "name": "rare-profile",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Wallet-less CLI + SDK for managing a rare.xyz profile",
   "type": "module",
   "engines": {
