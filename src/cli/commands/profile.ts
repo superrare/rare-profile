@@ -36,6 +36,21 @@ export const profileCommand: CommandHandler = async ({ client, args }) => {
       return { data, human: () => "Profile updated." };
     }
 
+    case "set-username": {
+      const username = (args.positionals[2] ?? flags.username) as string | undefined;
+      if (!username) {
+        throw new UsageError("set-username requires a handle: rare-profile profile set-username <handle>");
+      }
+      const data = await client.profile.updateUsername({ username });
+      return {
+        data,
+        human: (d) => {
+          const r = d as { username: string; slug: string };
+          return `Username updated to @${r.username}. Public URL: /${r.slug}`;
+        },
+      };
+    }
+
     case "set-avatar": {
       const path = args.positionals[2];
       if (!path) throw new UsageError("set-avatar requires a file path: rare-profile profile set-avatar <path>");
@@ -70,7 +85,7 @@ export const profileCommand: CommandHandler = async ({ client, args }) => {
 
     default:
       throw new UsageError(
-        `Unknown profile subcommand: ${String(sub)}. Valid subcommands: show, set, set-avatar, set-banner, feature-nft`
+        `Unknown profile subcommand: ${String(sub)}. Valid subcommands: show, set, set-username, set-avatar, set-banner, feature-nft`
       );
   }
 };

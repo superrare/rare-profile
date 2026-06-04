@@ -15,3 +15,15 @@ test("--base-url override and boolean default", () => {
   assert.equal(r.flags["base-url"], "https://staging.test");
   assert.equal(r.flags.json, undefined);
 });
+
+test("--key=value form is parsed (value may contain '=')", () => {
+  const r = parseArgs(["whoami", "--base-url=https://x.test/api?a=1"]);
+  assert.deepEqual(r.positionals, ["whoami"]);
+  assert.equal(r.flags["base-url"], "https://x.test/api?a=1");
+});
+
+test("--flag=value does not consume the next token", () => {
+  const r = parseArgs(["link", "add", "--title=My Site", "https://x.com"]);
+  assert.deepEqual(r.positionals, ["link", "add", "https://x.com"]);
+  assert.equal(r.flags.title, "My Site");
+});

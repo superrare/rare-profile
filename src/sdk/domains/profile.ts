@@ -8,6 +8,13 @@ const CheckUsernameSchema = z.object({
   username: z.string().optional(),
 }).passthrough();
 
+const UsernameUpdateSchema = z.object({
+  username: z.string(),
+  slug: z.string(),
+  previous_username: z.string().optional(),
+  previous_slug: z.string().optional(),
+}).passthrough();
+
 export interface ProfileUpdate {
   bio?: string; website?: string; twitter?: string; instagram?: string;
   telegram?: string; farcaster?: string; theme?: string; display_name?: string;
@@ -42,5 +49,14 @@ export function makeProfileDomain(t: Transport) {
     /** Check username availability (public). */
     checkUsername: (input: { username: string }) =>
       t.post("check-username", input, CheckUsernameSchema),
+    /**
+     * Rename the public handle. The server keeps `username` and the URL `slug`
+     * in sync (both updated together), enforces format `^[a-z0-9_-]{3,30}$`,
+     * rejects reserved handles, and returns 409 on a uniqueness conflict.
+     * Distinct from `update`/update-profile, which deliberately ignores
+     * username/slug — handle changes require this dedicated action.
+     */
+    updateUsername: (input: { username: string }) =>
+      t.post("update-username", input, UsernameUpdateSchema),
   };
 }

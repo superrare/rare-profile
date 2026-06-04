@@ -2,6 +2,13 @@
 
 A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 
+> **🤖 Driving this from an AI agent? Install the skill first.**
+> Run `rare-profile skill` and save the output where your agent runtime expects it
+> (e.g. `rare-profile skill > .claude/skills/rare-profile-cli/SKILL.md`, or
+> `rare-profile skill >> AGENTS.md`). It's a self-contained guide to using the CLI —
+> the `--json` contract, exit codes, auth, and gotchas. See
+> [For AI agents](#for-ai-agents-claude-codex-cursor-) below.
+
 ## What it is / is not
 
 **rare-profile** lets you manage your rare.xyz presence from the terminal or from code:
@@ -56,6 +63,36 @@ rare-profile whoami   # verify the stored token
 
 ---
 
+## For AI agents (Claude, Codex, Cursor, …)
+
+This CLI ships a tool-agnostic **skill** — a plain-Markdown guide for driving it from
+an AI agent. The fastest way to install it is to let the CLI dump it into whatever
+location your agent runtime expects:
+
+```sh
+rare-profile skill list                                   # see what's available
+rare-profile skill > .claude/skills/rare-profile-cli/SKILL.md   # Claude Code
+rare-profile skill >> AGENTS.md                           # Codex / Cursor / others
+rare-profile skill > .cursor/rules/rare-profile.md        # Cursor rules
+```
+
+The source also lives in the repo at [`skills/`](./skills):
+
+- [`skills/rare-profile-cli.md`](./skills/rare-profile-cli.md) — how to **use** the
+  CLI: the `--json` contract, exit codes, auth/device flow, the command map, common
+  flows, and gotchas.
+
+These are plain Markdown (no tool-specific frontmatter), so any agent runtime can
+load them.
+
+> **Scope:** everything under [`skills/`](./skills) is for **consumers using the
+> published CLI** — it's bundled into the package and dumpable via `rare-profile
+> skill`. It is **not** guidance for developing this repo. If you're working *on*
+> rare-profile, see [Development](#development) below; a dev-focused agent guide, when
+> added, will live separately and will not be shipped or dumped as a usage skill.
+
+---
+
 ## JSON output for agents
 
 Every command supports a `--json` flag (or set `RARE_PROFILE_JSON=1` in the environment). Output is one JSON object per line.
@@ -96,7 +133,12 @@ Every command supports a `--json` flag (or set `RARE_PROFILE_JSON=1` in the envi
 | Flag | Description |
 |------|-------------|
 | `--json` | Emit JSON output |
-| `--base-url <url>` | Override API base URL (default: `https://rare.xyz`) |
+| `--base-url <url>` | Override API base URL (beta default: `https://beta.rare.xyz`) |
+| `-h, --help` | Show help (works per command, e.g. `rare-profile profile --help`) |
+| `-V, --version` | Print the version |
+
+Run `rare-profile --help` for the full command list, or `rare-profile <command> --help`
+for a command's subcommands.
 
 ### Commands
 
@@ -107,8 +149,9 @@ Every command supports a `--json` flag (or set `RARE_PROFILE_JSON=1` in the envi
 | `whoami` | _(no subcommand)_ — print current profile |
 | `version` | _(no subcommand)_ — print package version |
 | `tokens` | _(no subcommand / list)_ — open dashboard link |
+| `skill` | `list`, _or_ `<name>` — dump an agent skill doc to stdout |
 | `help` | _(no subcommand)_ — list commands |
-| `profile` | `show`, `set`, `set-avatar`, `set-banner`, `feature-nft` |
+| `profile` | `show`, `set`, `set-username`, `set-avatar`, `set-banner`, `feature-nft` |
 | `link` | `add`, `list`, `rm`, `update`, `reorder` |
 | `store` | `create`, `list`, `get`, `update` |
 | `product` | `add`, `list`, `unlist`, `rm`, `edit`, `browse` |
@@ -135,6 +178,11 @@ rare-profile profile show --slug someuser
 # Update profile fields
 rare-profile profile set --bio "Building on rare.xyz" --website https://example.com
 rare-profile profile set --display-name "Alice" --twitter alice --farcaster alice
+
+# Change your public handle (renames both @username and the URL slug)
+rare-profile profile set-username alice
+# → Public URL becomes https://beta.rare.xyz/alice
+# Handle rules: ^[a-z0-9_-]{3,30}$, not reserved, must be unique (409 on conflict).
 
 # Upload avatar / banner
 rare-profile profile set-avatar ./avatar.png
@@ -229,7 +277,7 @@ RARE_PROFILE_JSON=1 rare-profile link list
 import { createProfileClient } from "rare-profile";
 
 const client = createProfileClient({
-  baseUrl: "https://rare.xyz",
+  baseUrl: "https://beta.rare.xyz", // beta host until GA on rare.xyz
   token: process.env.RARE_PROFILE_TOKEN, // a slk_ CLI token
 });
 
@@ -242,6 +290,10 @@ const other = await client.profile.get({ slug: "someuser" });
 
 // Update profile
 await client.profile.update({ bio: "Updated via SDK", website: "https://example.com" });
+
+// Rename your public handle (username + URL slug are kept in sync server-side)
+const renamed = await client.profile.updateUsername({ username: "alice" });
+// renamed.slug === "alice"  → https://beta.rare.xyz/alice
 
 // Add a link
 const link = await client.links.add({ title: "My Site", url: "https://example.com" });
@@ -327,3 +379,9 @@ pnpm build           # rolldown build → dist/index.js + dist/index.d.ts + dist
 ```
 
 Tests use Node.js built-in `node:test` runner, imported via `tsx` for TypeScript support. The build uses rolldown with two outputs: the ESM library bundle and the CLI executable.
+
+> **Note for AI agents working on this repo:** the [`skills/`](./skills) folder is
+> **consumer-facing** — it documents how to *use* the published CLI and is shipped to
+> end users. Do **not** treat it as development guidance, and don't run
+> `rare-profile skill` to install a usage skill into this repo. Repo conventions live
+> here in the README (and in a dedicated dev guide if/when one is added).

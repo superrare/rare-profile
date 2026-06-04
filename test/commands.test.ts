@@ -19,6 +19,7 @@ function fakeClient() {
       setAvatar: rec("profile.setAvatar"),
       setBanner: rec("profile.setBanner"),
       featureNft: rec("profile.featureNft"),
+      updateUsername: rec("profile.updateUsername"),
     },
     links: {
       add: rec("links.add"),
@@ -79,6 +80,28 @@ test("profile set with no flags throws UsageError", async () => {
   const { client } = fakeClient();
   await assert.rejects(
     () => profileCommand(ctx(client, ["profile", "set"], {})),
+    (e: unknown) => e instanceof UsageError,
+  );
+});
+
+test("profile set-username maps positional handle to updateUsername", async () => {
+  const { client, calls } = fakeClient();
+  await profileCommand(ctx(client, ["profile", "set-username", "charlescrain"], {}));
+  assert.equal(calls[0].name, "profile.updateUsername");
+  assert.deepEqual(calls[0].input, { username: "charlescrain" });
+});
+
+test("profile set-username accepts --username flag", async () => {
+  const { client, calls } = fakeClient();
+  await profileCommand(ctx(client, ["profile", "set-username"], { username: "charlescrain" }));
+  assert.equal(calls[0].name, "profile.updateUsername");
+  assert.deepEqual(calls[0].input, { username: "charlescrain" });
+});
+
+test("profile set-username with no handle throws UsageError", async () => {
+  const { client } = fakeClient();
+  await assert.rejects(
+    () => profileCommand(ctx(client, ["profile", "set-username"], {})),
     (e: unknown) => e instanceof UsageError,
   );
 });
