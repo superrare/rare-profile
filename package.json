@@ -20,7 +20,9 @@
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts && chmod +x dist/bin.js",
-    "test": "node --import tsx/esm --test",
+    "test:unit": "node --import tsx/esm --test 'test/*.test.ts'",
+    "test:e2e": "pnpm build && node --import tsx/esm --test 'test/e2e/**/*.test.ts'",
+    "test": "pnpm run test:unit && pnpm run test:e2e",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
