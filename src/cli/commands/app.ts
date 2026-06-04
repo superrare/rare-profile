@@ -11,7 +11,7 @@ export const appCommand: CommandHandler = async ({ client, args }) => {
       const title = flags.title as string | undefined;
       const price = flags.price as string | undefined;
       const zipPath = flags.zip as string | undefined;
-      if (!storefrontId || !title || price === undefined || !zipPath) {
+      if (!storefrontId || !title || !price || !zipPath) {
         throw new UsageError("app deploy requires --store, --title, --price, and --zip <path>");
       }
       const bytes = readFileBytes(zipPath);

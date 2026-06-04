@@ -50,9 +50,11 @@ export function createAuth(opts: AuthOptions): Auth {
         verificationUriComplete: json.verificationUriComplete as string,
         async poll() {
           while (Date.now() < deadline) {
-            await sleep(intervalMs);
             const { json: p } = await postJson("/auth/cli/device/poll", { deviceCode });
-            if (p.status === "pending") continue;
+            if (p.status === "pending") {
+              await sleep(intervalMs);
+              continue;
+            }
             if (p.status === "approved" && p.token) return p.token as string;
             if (p.status === "denied") throw new ProfileAuthError("CLI login denied in browser.");
             if (p.status === "expired") throw new ProfileAuthError("Login code expired. Run login again.");
