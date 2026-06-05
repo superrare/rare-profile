@@ -25,5 +25,12 @@ export const LinkSchema = z.object({
 }).passthrough();
 export type Link = z.infer<typeof LinkSchema>;
 
-/** Generic acknowledgement payloads, e.g. { deleted: true } or array responses from list endpoints. */
+/**
+ * Generic acknowledgement payloads, e.g. { deleted: true } or array responses from
+ * list endpoints. Intentionally permissive: it only guarantees the body is a JSON
+ * object or array (rejecting scalar/garbage responses), NOT any particular shape.
+ * Endpoints the CLI reads specific fields from (profile, links, username) use the
+ * dedicated schemas above; everything else is pass-through until its response
+ * contract is pinned down. Tighten per-endpoint here when a caller depends on fields.
+ */
 export const AckSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]);

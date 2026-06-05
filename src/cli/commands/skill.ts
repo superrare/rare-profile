@@ -26,14 +26,18 @@ function readSkillFile(filename: string): string {
     new URL(`./skills/${filename}`, import.meta.url), // published: dist/bin.js → dist/skills/<file>
     new URL(`../../../skills/${filename}`, import.meta.url), // dev (tsx): src/cli/commands → repo/skills/<file>
   ];
+  let lastError: unknown;
   for (const url of candidates) {
     try {
       return readFileSync(url, "utf8");
-    } catch {
-      // try next candidate
+    } catch (e) {
+      lastError = e; // keep the most recent read failure to chain onto the thrown error
     }
   }
-  throw new Error(`Skill file not found: ${filename}`);
+  throw new Error(
+    `Skill file not found: ${filename} (looked in published and dev layouts)`,
+    { cause: lastError },
+  );
 }
 
 /**

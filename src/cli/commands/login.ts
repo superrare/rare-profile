@@ -1,6 +1,7 @@
 import { createProfileClient } from "../../sdk/index.js";
 import { DEFAULT_CLI_SCOPES } from "../../sdk/scopes.js";
 import { writeConfig } from "../config.js";
+import { renderEvent } from "../output.js";
 import type { ParsedArgs } from "../args.js";
 
 export interface LoginDeps {
@@ -18,11 +19,18 @@ export async function runLogin(args: ParsedArgs, deps: LoginDeps): Promise<{ sco
   const client = factory({ baseUrl: deps.baseUrl });
   const flow = await client.auth.startDeviceFlow({ label, scopes: DEFAULT_CLI_SCOPES });
 
-  if (deps.json) {
-    deps.out(JSON.stringify({ ok: true, command: "login", event: "awaiting_approval", userCode: flow.userCode, verificationUri: flow.verificationUriComplete }));
-  } else {
-    deps.out(`\nApprove this CLI:\n  code: ${flow.userCode}\n  open: ${flow.verificationUriComplete}\n\nWaiting for approval...`);
-  }
+  deps.out(
+    renderEvent(
+      "login",
+      "awaiting_approval",
+      { userCode: flow.userCode, verificationUri: flow.verificationUriComplete },
+      {
+        json: deps.json,
+        human: () =>
+          `\nApprove this CLI:\n  code: ${flow.userCode}\n  open: ${flow.verificationUriComplete}\n\nWaiting for approval...`,
+      },
+    ),
+  );
 
   const pat = await flow.poll();
   writeConfig({ token: pat, baseUrl: deps.baseUrl }, deps.configPath);

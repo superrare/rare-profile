@@ -1,21 +1,31 @@
 import type { Transport } from "../transport.js";
 import { AckSchema } from "../types.js";
+import { encodeBase64, setIfDefined } from "../media.js";
+
+export interface CreatePostInput {
+  content?: string;
+  storefrontId?: string;
+  media?: { fileName: string; bytes: Uint8Array; mimeType: string };
+}
+
+/** Pure: build the create-post request body, base64-encoding media when present (no I/O). */
+export function buildCreatePostParams(input: CreatePostInput): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
+  setIfDefined(params, "content", input.content);
+  setIfDefined(params, "storefrontId", input.storefrontId);
+  if (input.media !== undefined) {
+    params.mediaContent = encodeBase64(input.media.bytes);
+    params.mediaFileName = input.media.fileName;
+    params.mediaMimeType = input.media.mimeType;
+  }
+  return params;
+}
 
 export function makePostsDomain(t: Transport) {
   return {
     /** Create a post, optionally with media content. */
-    create: (input: { content?: string; storefrontId?: string; media?: { fileName: string; bytes: Uint8Array; mimeType: string } }) => {
-      const { content, storefrontId, media } = input;
-      const params: Record<string, unknown> = {};
-      if (content !== undefined) params.content = content;
-      if (storefrontId !== undefined) params.storefrontId = storefrontId;
-      if (media !== undefined) {
-        params.mediaContent = Buffer.from(media.bytes).toString("base64");
-        params.mediaFileName = media.fileName;
-        params.mediaMimeType = media.mimeType;
-      }
-      return t.post("create-post", params, AckSchema);
-    },
+    create: (input: CreatePostInput) =>
+      t.post("create-post", buildCreatePostParams(input), AckSchema),
 
     /** Delete a post by ID. */
     delete: (input: { postId: string }) =>

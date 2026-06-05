@@ -15,6 +15,8 @@ function readVersion(): string {
     const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string };
     return pkg.version ?? "0.0.0";
   } catch {
+    // Deliberate swallow: version display must never crash the CLI. A missing/unreadable
+    // package.json only ever degrades `--version` to a placeholder, not a real operation.
     return "0.0.0";
   }
 }

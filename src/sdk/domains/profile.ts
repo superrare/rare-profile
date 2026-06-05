@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Transport } from "../transport.js";
 import { ProfileSchema } from "../types.js";
+import { encodeBase64 } from "../media.js";
 
 const CheckUsernameSchema = z.object({
   available: z.boolean(),
@@ -33,14 +34,14 @@ export function makeProfileDomain(t: Transport) {
     setAvatar: (input: { fileName: string; bytes: Uint8Array; mimeType?: string }) =>
       t.post("update-profile", {
         avatarFileName: input.fileName,
-        avatarContent: Buffer.from(input.bytes).toString("base64"),
+        avatarContent: encodeBase64(input.bytes),
         avatarMimeType: input.mimeType ?? "image/png",
       }, ProfileSchema),
     /** Upload a banner from raw bytes. */
     setBanner: (input: { fileName: string; bytes: Uint8Array; mimeType?: string }) =>
       t.post("update-profile", {
         bannerFileName: input.fileName,
-        bannerContent: Buffer.from(input.bytes).toString("base64"),
+        bannerContent: encodeBase64(input.bytes),
         bannerMimeType: input.mimeType ?? "image/png",
       }, ProfileSchema),
     /** Feature an NFT on the profile (showcase metadata; no wallet/signing). */

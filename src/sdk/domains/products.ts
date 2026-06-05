@@ -1,5 +1,43 @@
 import type { Transport } from "../transport.js";
 import { AckSchema } from "../types.js";
+import { encodeBase64, setIfDefined } from "../media.js";
+
+export interface AddWithFileInput {
+  storefrontId: string; title: string; price: string; fileName: string; bytes: Uint8Array;
+  mimeType?: string; description?: string; listingType?: string; contentType?: string;
+}
+
+export interface StageFileInput {
+  storefrontId: string; fileName: string; bytes: Uint8Array; contentType: string; mimeType?: string;
+}
+
+/** Pure: build the add-product request body from a file upload (no I/O). */
+export function buildAddWithFileParams(input: AddWithFileInput): Record<string, unknown> {
+  const params: Record<string, unknown> = {
+    storefrontId: input.storefrontId,
+    title: input.title,
+    price: input.price,
+    fileContent: encodeBase64(input.bytes),
+    fileName: input.fileName,
+  };
+  setIfDefined(params, "description", input.description);
+  setIfDefined(params, "listingType", input.listingType);
+  setIfDefined(params, "contentType", input.contentType);
+  setIfDefined(params, "mimeType", input.mimeType);
+  return params;
+}
+
+/** Pure: build the stage-product-file request body (no I/O). */
+export function buildStageFileParams(input: StageFileInput): Record<string, unknown> {
+  const params: Record<string, unknown> = {
+    storefrontId: input.storefrontId,
+    fileName: input.fileName,
+    fileContent: encodeBase64(input.bytes),
+    contentType: input.contentType,
+  };
+  setIfDefined(params, "mimeType", input.mimeType);
+  return params;
+}
 
 export function makeProductsDomain(t: Transport) {
   return {
@@ -8,34 +46,12 @@ export function makeProductsDomain(t: Transport) {
       t.post("add-product", input, AckSchema),
 
     /** Add a product and upload its file in one call (base64-encodes raw bytes). */
-    addWithFile: (input: { storefrontId: string; title: string; price: string; fileName: string; bytes: Uint8Array; mimeType?: string; description?: string; listingType?: string; contentType?: string }) => {
-      const { bytes, fileName, mimeType, storefrontId, title, price, description, listingType, contentType } = input;
-      const params: Record<string, unknown> = {
-        storefrontId,
-        title,
-        price,
-        fileContent: Buffer.from(bytes).toString("base64"),
-        fileName,
-      };
-      if (description !== undefined) params.description = description;
-      if (listingType !== undefined) params.listingType = listingType;
-      if (contentType !== undefined) params.contentType = contentType;
-      if (mimeType !== undefined) params.mimeType = mimeType;
-      return t.post("add-product", params, AckSchema);
-    },
+    addWithFile: (input: AddWithFileInput) =>
+      t.post("add-product", buildAddWithFileParams(input), AckSchema),
 
     /** Stage a file for later attachment to a product. */
-    stageFile: (input: { storefrontId: string; fileName: string; bytes: Uint8Array; contentType: string; mimeType?: string }) => {
-      const { bytes, fileName, storefrontId, contentType, mimeType } = input;
-      const params: Record<string, unknown> = {
-        storefrontId,
-        fileName,
-        fileContent: Buffer.from(bytes).toString("base64"),
-        contentType,
-      };
-      if (mimeType !== undefined) params.mimeType = mimeType;
-      return t.post("stage-product-file", params, AckSchema);
-    },
+    stageFile: (input: StageFileInput) =>
+      t.post("stage-product-file", buildStageFileParams(input), AckSchema),
 
     /** Edit a product's metadata fields. */
     edit: (input: { productId: string; title?: string; description?: string; price?: string; metadata?: object }) =>
