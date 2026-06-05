@@ -9,17 +9,27 @@
   "bin": {
     "rare-profile": "dist/bin.js"
   },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "rolldown -c rolldown.config.ts && chmod +x dist/bin.js && mkdir -p dist/skills && cp skills/rare-profile-cli.md dist/skills/",
+    "build": "rolldown -c rolldown.config.ts && cp dist/index.d.ts dist/index.d.cts && chmod +x dist/bin.js && mkdir -p dist/skills && cp skills/rare-profile-cli.md dist/skills/",
     "test:unit": "node --import tsx/esm --test 'test/*.test.ts'",
     "test:integration": "pnpm build && node --import tsx/esm --test 'test/integration/**/*.test.ts'",
     "test:e2e": "pnpm build && node --import tsx/esm --test 'test/e2e/**/*.test.ts'",

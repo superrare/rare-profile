@@ -273,6 +273,15 @@ RARE_PROFILE_JSON=1 rare-profile link list
 
 ## SDK usage
 
+The package ships both ESM and CommonJS builds, so either import style works:
+
+```typescript
+// ESM / TypeScript
+import { createProfileClient } from "rare-profile";
+// CommonJS
+const { createProfileClient } = require("rare-profile");
+```
+
 ```typescript
 import { createProfileClient } from "rare-profile";
 
@@ -378,7 +387,7 @@ pnpm typecheck       # TypeScript type check (no emit)
 pnpm build           # rolldown build → dist/index.js + dist/index.d.ts + dist/bin.js (executable)
 ```
 
-Tests use Node.js built-in `node:test` runner, imported via `tsx` for TypeScript support. The build uses rolldown with two outputs: the ESM library bundle and the CLI executable.
+Tests use Node.js built-in `node:test` runner, imported via `tsx` for TypeScript support. The build uses rolldown to emit a **dual ESM + CommonJS** library (`dist/index.js` + `dist/index.cjs`, with matching `index.d.ts` / `index.d.cts`) plus the self-contained CLI executable (`dist/bin.js`). The package `exports` map serves the right file to `import` and `require` consumers; both are verified by integration tests and `arethetypeswrong`.
 
 > **Note for AI agents working on this repo:** the [`skills/`](./skills) folder is
 > **consumer-facing** — it documents how to *use* the published CLI and is shipped to
