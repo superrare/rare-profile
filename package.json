@@ -1,5 +1,5 @@
 {
-  "name": "rare-profile",
+  "name": "@rareprotocol/rare-profile",
   "version": "0.1.0-beta.1",
   "description": "Wallet-less CLI + SDK for managing a rare.xyz profile",
   "license": "MIT",

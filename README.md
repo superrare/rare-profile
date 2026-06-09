@@ -32,14 +32,14 @@ A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 ## Install
 
 ```sh
-npm install -g rare-profile
+npm install -g @rareprotocol/rare-profile
 rare-profile --help
 ```
 
 As a library:
 
 ```sh
-npm install rare-profile
+npm install @rareprotocol/rare-profile
 ```
 
 ---
@@ -277,13 +277,13 @@ The package ships both ESM and CommonJS builds, so either import style works:
 
 ```typescript
 // ESM / TypeScript
-import { createProfileClient } from "rare-profile";
+import { createProfileClient } from "@rareprotocol/rare-profile";
 // CommonJS
-const { createProfileClient } = require("rare-profile");
+const { createProfileClient } = require("@rareprotocol/rare-profile");
 ```
 
 ```typescript
-import { createProfileClient } from "rare-profile";
+import { createProfileClient } from "@rareprotocol/rare-profile";
 
 const client = createProfileClient({
   baseUrl: "https://beta.rare.xyz", // beta host until GA on rare.xyz
@@ -329,7 +329,7 @@ import {
   ProfileAuthError,
   DEFAULT_CLI_SCOPES,
   type CliScope,
-} from "rare-profile";
+} from "@rareprotocol/rare-profile";
 ```
 
 ---
