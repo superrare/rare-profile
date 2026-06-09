@@ -2,6 +2,7 @@
   "name": "rare-profile",
   "version": "0.1.0-beta.1",
   "description": "Wallet-less CLI + SDK for managing a rare.xyz profile",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -28,7 +29,12 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "tag": "beta",
+    "access": "public"
+  },
   "scripts": {
+    "prepublishOnly": "pnpm build",
     "build": "rolldown -c rolldown.config.ts && cp dist/index.d.ts dist/index.d.cts && chmod +x dist/bin.js && mkdir -p dist/skills && cp skills/rare-profile-cli.md dist/skills/",
     "test:unit": "node --import tsx/esm --test 'test/*.test.ts'",
     "test:integration": "pnpm build && node --import tsx/esm --test 'test/integration/**/*.test.ts'",
