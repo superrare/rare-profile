@@ -40,7 +40,7 @@ test("client exposes expected domains and no money/admin methods", () => {
 });
 
 test("CommonJS require() loads the bundle and exposes the same surface", () => {
-  // Real CJS consumers (`require('rare-profile')`) must work, not just ESM.
+  // Real CJS consumers (`require('@rareprotocol/rare-profile')`) must work, not just ESM.
   const cjs = require("../../dist/index.cjs") as typeof pkg;
   assert.equal(typeof cjs.createProfileClient, "function");
   assert.equal(typeof cjs.ProfileApiError, "function");
