@@ -1,6 +1,6 @@
 {
   "name": "@rareprotocol/rare-profile",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "description": "Wallet-less CLI + SDK for managing a rare.xyz profile",
   "license": "MIT",
   "type": "module",
@@ -36,9 +36,9 @@
   "scripts": {
     "prepublishOnly": "pnpm build",
     "build": "rolldown -c rolldown.config.ts && cp dist/index.d.ts dist/index.d.cts && chmod +x dist/bin.js && mkdir -p dist/skills && cp skills/rare-profile-cli.md dist/skills/",
-    "test:unit": "node --import tsx/esm --test 'test/*.test.ts'",
-    "test:integration": "pnpm build && node --import tsx/esm --test 'test/integration/**/*.test.ts'",
-    "test:e2e": "pnpm build && node --import tsx/esm --test 'test/e2e/**/*.test.ts'",
+    "test:unit": "node --import tsx/esm --test test/*.test.ts",
+    "test:integration": "pnpm build && node --import tsx/esm --test test/integration/*.test.ts",
+    "test:e2e": "pnpm build && node --import tsx/esm --test test/e2e/*.test.ts",
     "test": "pnpm run test:unit && pnpm run test:integration && pnpm run test:e2e",
     "typecheck": "tsc --noEmit"
   },

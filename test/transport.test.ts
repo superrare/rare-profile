@@ -75,3 +75,66 @@ test("schema mismatch throws ProfileApiError", async () => {
   });
   await assert.rejects(() => t.post("get-profile", {}, okSchema), (e: unknown) => e instanceof ProfileApiError);
 });
+
+test("postArchive sends raw ZIP bytes and query metadata", async () => {
+  const { fn, calls } = mockFetch([{ status: 200, body: { id: "app-1" } }]);
+  const t = createTransport({
+    baseUrl: "https://studio.superrare.com/",
+    fetchImpl: fn,
+    getToken: () => "jwt-1",
+    refresh: async () => "jwt-2",
+  });
+  const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+
+  const out = await t.postArchive(
+    "/api/app-deploy",
+    {
+      storefrontId: "store 1",
+      title: "Interactive Garden",
+      price: "0",
+      entryPoint: undefined,
+    },
+    bytes,
+    okSchema,
+  );
+
+  assert.deepEqual(out, { id: "app-1" });
+  assert.equal(
+    calls[0].url,
+    "https://studio.superrare.com/api/app-deploy?storefrontId=store+1&title=Interactive+Garden&price=0",
+  );
+  assert.equal(calls[0].init.body, bytes);
+  assert.equal(
+    (calls[0].init.headers as Record<string, string>)["Content-Type"],
+    "application/zip",
+  );
+  assert.equal(
+    (calls[0].init.headers as Record<string, string>).Authorization,
+    "Bearer jwt-1",
+  );
+});
+
+test("postArchive refreshes once after a 401", async () => {
+  const { fn, calls } = mockFetch([
+    { status: 401, body: { error: "Unauthorized" } },
+    { status: 200, body: { id: "app-1" } },
+  ]);
+  const t = createTransport({
+    baseUrl: "https://studio.superrare.com",
+    fetchImpl: fn,
+    getToken: () => "old",
+    refresh: async () => "new",
+  });
+
+  await t.postArchive(
+    "/api/app-deploy",
+    { storefrontId: "store-1", title: "App", price: "0" },
+    new Uint8Array([1]),
+    okSchema,
+  );
+
+  assert.equal(
+    (calls[1].init.headers as Record<string, string>).Authorization,
+    "Bearer new",
+  );
+});

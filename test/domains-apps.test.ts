@@ -3,22 +3,27 @@ import assert from "node:assert/strict";
 import { makeAppsDomain } from "../src/sdk/domains/apps.js";
 
 function fakeTransport() {
-  const calls: Array<{ action: string; params: any }> = [];
+  const calls: Array<{ action: string; params: any; bytes?: Uint8Array }> = [];
   const t = {
     post: async (action: string, params: any) => {
       calls.push({ action, params });
+      return {} as any;
+    },
+    postArchive: async (path: string, params: any, bytes: Uint8Array) => {
+      calls.push({ action: path, params, bytes });
       return {} as any;
     },
   } as any;
   return { t, calls };
 }
 
-test("apps.add → add-app, base64 zip, no raw bytes", async () => {
+test("apps.add streams raw ZIP bytes to the Studio deployment endpoint", async () => {
   const { t, calls } = fakeTransport();
-  await makeAppsDomain(t).add({ storefrontId: "s", title: "T", price: "0", bytes: new Uint8Array([1, 2, 3]) });
-  assert.equal(calls[0].action, "add-app");
-  assert.equal(calls[0].params.fileContent, Buffer.from(new Uint8Array([1, 2, 3])).toString("base64"));
-  assert.ok(!("bytes" in calls[0].params));
+  const bytes = new Uint8Array([1, 2, 3]);
+  await makeAppsDomain(t).add({ storefrontId: "s", title: "T", price: "0", bytes });
+  assert.equal(calls[0].action, "/api/app-deploy");
+  assert.deepEqual(calls[0].params, { storefrontId: "s", title: "T", price: "0" });
+  assert.deepEqual(calls[0].bytes, bytes);
 });
 
 test("apps.add includes entryPoint only when provided", async () => {

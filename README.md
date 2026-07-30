@@ -224,6 +224,10 @@ rare-profile app deploy --store <storefrontId> --title "My App" --price 2 --zip 
 rare-profile app update <id> --zip ./app-v2.zip
 rare-profile app token <id>
 
+`app deploy` streams the ZIP directly to Studio. The archive is not embedded as
+base64 in the commerce request, so valid larger builds stay within the deployment
+service's memory limits.
+
 # Posts
 rare-profile post create --text "Hello rare.xyz!"
 rare-profile post create --text "With media" --media ./image.png --media-type image/png

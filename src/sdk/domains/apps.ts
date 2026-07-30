@@ -10,13 +10,12 @@ export interface UpdateAppInput {
   productId: string; bytes: Uint8Array; entryPoint?: string;
 }
 
-/** Pure: build the add-app request body (no I/O). */
-export function buildAddAppParams(input: AddAppInput): Record<string, unknown> {
-  const params: Record<string, unknown> = {
+/** Pure: build streamed app deployment query parameters (no I/O). */
+export function buildAddAppParams(input: AddAppInput): Record<string, string | undefined> {
+  const params: Record<string, string | undefined> = {
     storefrontId: input.storefrontId,
     title: input.title,
     price: input.price,
-    fileContent: encodeBase64(input.bytes),
   };
   setIfDefined(params, "entryPoint", input.entryPoint);
   return params;
@@ -34,9 +33,9 @@ export function buildUpdateAppParams(input: UpdateAppInput): Record<string, unkn
 
 export function makeAppsDomain(t: Transport) {
   return {
-    /** Add an app to a storefront, uploading its file as base64. */
+    /** Add an app to a storefront using Studio's streamed ZIP endpoint. */
     add: (input: AddAppInput) =>
-      t.post("add-app", buildAddAppParams(input), AckSchema),
+      t.postArchive("/api/app-deploy", buildAddAppParams(input), input.bytes, AckSchema),
 
     /** Update an app's file, optionally changing the entry point. */
     update: (input: UpdateAppInput) =>
