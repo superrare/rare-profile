@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runCli, withTempHome, parseJsonStdout } from "../helpers/cli.js";
+import { startMockServer } from "../helpers/mock-server.js";
 import { dataCommands } from "../../src/cli/commands/index.js";
 
 async function seedConfig(home: string, baseUrl: string): Promise<void> {
@@ -172,6 +173,57 @@ test("authenticated command without login → exit 3 (human output)", async () =
     assert.equal(r.code, 3);
     assert.match(r.stdout + r.stderr, /Not authenticated/);
   });
+});
+
+test("app deploy streams the ZIP bytes to the dedicated endpoint", async () => {
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/app-deploy": () => ({ json: { id: "app-1" } }),
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const zipPath = join(home, "app.zip");
+      const archive = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 1, 2, 3]);
+      await writeFile(zipPath, archive);
+
+      const result = await runCli(
+        [
+          "app",
+          "deploy",
+          "--store",
+          "store 1",
+          "--title",
+          "Interactive Garden",
+          "--price",
+          "0",
+          "--entry",
+          "index.html",
+          "--zip",
+          zipPath,
+          "--json",
+        ],
+        { home },
+      );
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(parseJsonStdout<{ data: { id: string } }>(result).data.id, "app-1");
+      const uploads = server.requests.filter((request) => request.path === "/api/app-deploy");
+      assert.equal(uploads.length, 1, "expected the ZIP to be uploaded only once");
+      const upload = uploads[0];
+      assert.ok(upload, "expected an app deploy request");
+      assert.deepEqual(upload.rawBody, archive);
+      assert.equal(upload.headers["content-type"], "application/zip");
+      assert.equal(upload.headers.authorization, "Bearer jwt-1");
+      const query = new URL(upload.url, server.url).searchParams;
+      assert.equal(query.get("storefrontId"), "store 1");
+      assert.equal(query.get("title"), "Interactive Garden");
+      assert.equal(query.get("price"), "0");
+      assert.equal(query.get("entryPoint"), "index.html");
+    });
+  } finally {
+    await server.close();
+  }
 });
 
 test("RARE_PROFILE_JSON=1 forces JSON without the flag", async () => {

@@ -1,10 +1,17 @@
 import { createServer, type Server } from "node:http";
-import { text } from "node:stream/consumers";
+import { arrayBuffer } from "node:stream/consumers";
+
+export interface MockRequest {
+  path: string;
+  url: string;
+  body: any;
+  rawBody: Buffer;
+  headers: Record<string, string | string[] | undefined>;
+}
 
 export interface MockServer {
   url: string;
-  /** Recorded requests: { path, body } */
-  requests: Array<{ path: string; body: any }>;
+  requests: MockRequest[];
   close: () => Promise<void>;
 }
 
@@ -12,17 +19,20 @@ export type Routes = Record<string, (body: any) => { status?: number; json: unkn
 
 /** Start a mock server. `routes` maps pathname → handler returning a JSON response. */
 export async function startMockServer(routes: Routes): Promise<MockServer> {
-  const requests: Array<{ path: string; body: any }> = [];
+  const requests: MockRequest[] = [];
   const server: Server = createServer(async (req, res) => {
-    const path = (req.url ?? "").split("?")[0];
-    let body: any = {};
-    try {
-      const raw = await text(req);
-      body = raw ? JSON.parse(raw) : {};
-    } catch {
-      body = {};
+    const url = req.url ?? "";
+    const path = url.split("?")[0];
+    const rawBody = Buffer.from(await arrayBuffer(req));
+    let body: any = rawBody;
+    if (req.headers["content-type"]?.includes("application/json")) {
+      try {
+        body = rawBody.length > 0 ? JSON.parse(rawBody.toString("utf8")) : {};
+      } catch {
+        body = {};
+      }
     }
-    requests.push({ path, body });
+    requests.push({ path, url, body, rawBody, headers: { ...req.headers } });
     const handler = routes[path];
     if (!handler) {
       res.writeHead(404, { "content-type": "application/json" });

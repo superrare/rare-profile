@@ -43,10 +43,10 @@ test("buildStageFileParams carries contentType and base64 content", () => {
   assert.ok(!("bytes" in params));
 });
 
-test("buildAddAppParams / buildUpdateAppParams base64 the file and gate entryPoint", () => {
+test("buildAddAppParams streams add metadata while updates retain compatibility encoding", () => {
   const bytes = new Uint8Array([1, 2, 3]);
   const add = buildAddAppParams({ storefrontId: "s", title: "T", price: "0", bytes });
-  assert.equal(add.fileContent, Buffer.from(bytes).toString("base64"));
+  assert.deepEqual(add, { storefrontId: "s", title: "T", price: "0" });
   assert.ok(!("bytes" in add));
   assert.ok(!("entryPoint" in add));
   const upd = buildUpdateAppParams({ productId: "p_1", bytes, entryPoint: "main.js" });
