@@ -1,6 +1,58 @@
 import type { CommandHandler } from "./registry.js";
 import { UsageError } from "./registry.js";
 
+const storefrontListKeys = ["storefronts", "stores", "data", "items", "results"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function firstString(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return undefined;
+}
+
+function storefrontItems(data: unknown): unknown[] | undefined {
+  if (Array.isArray(data)) return data;
+  if (!isRecord(data)) return undefined;
+
+  for (const key of storefrontListKeys) {
+    const value = data[key];
+    if (Array.isArray(value)) return value;
+    if (isRecord(value)) {
+      const nested = storefrontItems(value);
+      if (nested) return nested;
+    }
+  }
+
+  return undefined;
+}
+
+function renderStorefront(item: unknown, index: number): string {
+  if (!isRecord(item)) return `Storefront ${index + 1}`;
+
+  const label = firstString(item, ["name", "display_name", "title", "slug", "id"]) ?? `Storefront ${index + 1}`;
+  const slug = firstString(item, ["slug"]);
+  const id = firstString(item, ["id", "storefrontId", "storefront_id"]);
+  const details = [slug && slug !== label ? `/${slug}` : undefined, id && id !== label ? id : undefined]
+    .filter(Boolean)
+    .join(", ");
+
+  return details ? `${label} (${details})` : label;
+}
+
+export function renderStorefrontList(data: unknown): string {
+  const items = storefrontItems(data);
+  if (!items) return "Your storefronts.";
+
+  const noun = items.length === 1 ? "storefront" : "storefronts";
+  if (items.length === 0) return `0 ${noun}`;
+  return `${items.length} ${noun}: ${items.map(renderStorefront).join("; ")}`;
+}
+
 export const storeCommand: CommandHandler = async ({ client, args }) => {
   const sub = args.positionals[1];
   const flags = args.flags;
@@ -17,10 +69,7 @@ export const storeCommand: CommandHandler = async ({ client, args }) => {
       const data = await client.storefronts.mine();
       return {
         data,
-        human: (d) => {
-          if (Array.isArray(d)) return `${d.length} storefronts`;
-          return "Your storefronts.";
-        },
+        human: renderStorefrontList,
       };
     }
 
