@@ -176,15 +176,9 @@ test("authenticated command without login → exit 3 (human output)", async () =
 });
 
 test("app deploy streams the ZIP bytes to the dedicated endpoint", async () => {
-  let deploymentAttempts = 0;
   const server = await startMockServer({
     "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
-    "/api/app-deploy": () => {
-      deploymentAttempts += 1;
-      return deploymentAttempts === 1
-        ? { status: 401, json: { error: "session required" } }
-        : { json: { id: "app-1" } };
-    },
+    "/api/app-deploy": () => ({ json: { id: "app-1" } }),
   });
   try {
     await withTempHome(async (home) => {
@@ -215,8 +209,8 @@ test("app deploy streams the ZIP bytes to the dedicated endpoint", async () => {
       assert.equal(result.code, 0, result.stderr);
       assert.equal(parseJsonStdout<{ data: { id: string } }>(result).data.id, "app-1");
       const uploads = server.requests.filter((request) => request.path === "/api/app-deploy");
-      assert.equal(uploads.length, 2, "expected one unauthenticated request and one retry");
-      const upload = uploads.at(-1);
+      assert.equal(uploads.length, 1, "expected the ZIP to be uploaded only once");
+      const upload = uploads[0];
       assert.ok(upload, "expected an app deploy request");
       assert.deepEqual(upload.rawBody, archive);
       assert.equal(upload.headers["content-type"], "application/zip");

@@ -114,6 +114,34 @@ test("postArchive sends raw ZIP bytes and query metadata", async () => {
   );
 });
 
+test("postArchive establishes a session before sending large archive bytes", async () => {
+  const { fn, calls } = mockFetch([{ status: 200, body: { id: "app-1" } }]);
+  let refreshed = 0;
+  const t = createTransport({
+    baseUrl: "https://studio.superrare.com",
+    fetchImpl: fn,
+    getToken: () => null,
+    refresh: async () => {
+      refreshed += 1;
+      return "fresh";
+    },
+  });
+
+  await t.postArchive(
+    "/api/app-deploy",
+    { storefrontId: "store-1", title: "App", price: "0" },
+    new Uint8Array([1]),
+    okSchema,
+  );
+
+  assert.equal(refreshed, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    (calls[0].init.headers as Record<string, string>).Authorization,
+    "Bearer fresh",
+  );
+});
+
 test("postArchive refreshes once after a 401", async () => {
   const { fn, calls } = mockFetch([
     { status: 401, body: { error: "Unauthorized" } },

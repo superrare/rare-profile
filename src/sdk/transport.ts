@@ -81,7 +81,12 @@ export function createTransport(opts: TransportOptions): Transport {
       });
     };
 
-    let res = await sendArchive(opts.getToken());
+    // Unlike small JSON requests, do not send a potentially large archive just
+    // to discover that this fresh CLI process still needs a session exchange.
+    let token = opts.getToken();
+    if (!token) token = await opts.refresh();
+
+    let res = await sendArchive(token);
     if (res.status === 401) {
       const fresh = await opts.refresh();
       res = await sendArchive(fresh);
