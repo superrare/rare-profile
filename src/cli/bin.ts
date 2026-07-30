@@ -9,6 +9,7 @@ import { runLogout } from "./commands/logout.js";
 import { dataCommands } from "./commands/index.js";
 import { runTokens } from "./commands/tokens.js";
 import { runSkill } from "./commands/skill.js";
+import { DEFAULT_BASE_URL, resolveBaseUrl } from "./base-url.js";
 
 function readVersion(): string {
   try {
@@ -20,10 +21,6 @@ function readVersion(): string {
     return "0.0.0";
   }
 }
-
-// Beta default — point at beta.rare.xyz until the CLI API ships on the
-// production rare.xyz host. Override per-invocation with --base-url.
-const DEFAULT_BASE_URL = "https://beta.rare.xyz";
 
 // Shown after `help` so AI agents driving this CLI know to install the skill first.
 const AGENT_SKILL_HINT =
@@ -194,7 +191,10 @@ function emitHelpJson(): void {
 async function dispatch(command: string, json: boolean): Promise<void> {
   const { positionals, flags } = parseArgs(process.argv.slice(2));
   const cfg = readConfig();
-  const baseUrl = (flags["base-url"] as string) ?? cfg?.baseUrl ?? DEFAULT_BASE_URL;
+  const baseUrl = resolveBaseUrl({
+    explicitBaseUrl: flags["base-url"] as string | undefined,
+    configuredBaseUrl: cfg?.baseUrl,
+  });
 
   try {
     if (command === "login") {

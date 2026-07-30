@@ -1,7 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { runCli, withTempHome, parseJsonStdout } from "../helpers/cli.js";
 import { dataCommands } from "../../src/cli/commands/index.js";
+
+async function seedConfig(home: string, baseUrl: string): Promise<void> {
+  const dir = join(home, ".rare-profile");
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, "config.json"), JSON.stringify({ token: "slk_x", baseUrl }), {
+    mode: 0o600,
+  });
+}
 
 test("version --json → exit 0 and version payload", async () => {
   const r = await runCli(["version", "--json"]);
@@ -105,7 +115,38 @@ test("tokens list --json points at the dashboard", async () => {
   const r = await runCli(["tokens", "list", "--json"]);
   assert.equal(r.code, 0);
   const j = parseJsonStdout<{ data: { manageUrl: string } }>(r);
-  assert.match(j.data.manageUrl, /\/dashboard\/cli$/);
+  assert.equal(j.data.manageUrl, "https://studio.superrare.com/dashboard/cli");
+});
+
+test("tokens migrates the exact legacy configured base URL", async () => {
+  for (const legacyBaseUrl of ["https://beta.rare.xyz", "https://beta.rare.xyz/"]) {
+    await withTempHome(async (home) => {
+      await seedConfig(home, legacyBaseUrl);
+      const r = await runCli(["tokens", "--json"], { home });
+      const j = parseJsonStdout<{ data: { manageUrl: string } }>(r);
+      assert.equal(j.data.manageUrl, "https://studio.superrare.com/dashboard/cli");
+    });
+  }
+});
+
+test("tokens gives explicit --base-url precedence over legacy config", async () => {
+  await withTempHome(async (home) => {
+    await seedConfig(home, "https://beta.rare.xyz");
+    const r = await runCli(["tokens", "--base-url", "https://override.example", "--json"], {
+      home,
+    });
+    const j = parseJsonStdout<{ data: { manageUrl: string } }>(r);
+    assert.equal(j.data.manageUrl, "https://override.example/dashboard/cli");
+  });
+});
+
+test("tokens preserves an arbitrary configured base URL", async () => {
+  await withTempHome(async (home) => {
+    await seedConfig(home, "https://custom.example/api/");
+    const r = await runCli(["tokens", "--json"], { home });
+    const j = parseJsonStdout<{ data: { manageUrl: string } }>(r);
+    assert.equal(j.data.manageUrl, "https://custom.example/api/dashboard/cli");
+  });
 });
 
 test("unknown command → exit 2 usage error", async () => {

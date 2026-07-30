@@ -14,6 +14,7 @@ test("skill (default) dumps the rare-profile-cli markdown", () => {
   assert.equal(data.name, "rare-profile-cli");
   assert.equal(data.filename, "rare-profile-cli.md");
   assert.match(data.content, /# Skill: Using the `rare-profile` CLI/);
+  assert.match(data.content, /https:\/\/studio\.superrare\.com/);
   // human output is the raw markdown so it pipes straight to a file.
   assert.equal(result.human(result.data), data.content);
 });

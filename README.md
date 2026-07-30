@@ -52,9 +52,14 @@ rare-profile login
 
 This starts an OAuth device flow:
 
-1. A user code and a URL (`https://rare.xyz/dashboard/cli`) are printed.
-2. Open the URL in your browser while logged into rare.xyz and approve the request.
+1. The CLI starts the login flow through the Studio API at `https://studio.superrare.com`.
+2. A user code and browser approval URL are printed; open that URL and approve the request.
 3. The CLI polls until approval, then writes a `slk_` token to `~/.rare-profile/config.json` (mode 0600).
+
+Studio is the default API and login base URL. An exact legacy configured value of
+`https://beta.rare.xyz` (with or without a trailing slash) is automatically resolved
+to Studio. An explicit `--base-url` remains highest precedence, and all other custom
+configured URLs are preserved.
 
 ```sh
 rare-profile logout   # clear stored token
@@ -133,7 +138,7 @@ Every command supports a `--json` flag (or set `RARE_PROFILE_JSON=1` in the envi
 | Flag | Description |
 |------|-------------|
 | `--json` | Emit JSON output |
-| `--base-url <url>` | Override API base URL (beta default: `https://beta.rare.xyz`) |
+| `--base-url <url>` | Override API base URL (default: `https://studio.superrare.com`) |
 | `-h, --help` | Show help (works per command, e.g. `rare-profile profile --help`) |
 | `-V, --version` | Print the version |
 
@@ -179,9 +184,10 @@ rare-profile profile show --slug someuser
 rare-profile profile set --bio "Building on rare.xyz" --website https://example.com
 rare-profile profile set --display-name "Alice" --twitter alice --farcaster alice
 
-# Change your public handle (renames both @username and the URL slug)
+# Change your public handle (renames both @username and the profile slug)
 rare-profile profile set-username alice
-# → Public URL becomes https://beta.rare.xyz/alice
+# → Username and profile slug become "alice".
+# The public profile host is product-defined; do not derive it from the API base URL.
 # Handle rules: ^[a-z0-9_-]{3,30}$, not reserved, must be unique (409 on conflict).
 
 # Upload avatar / banner
@@ -286,7 +292,7 @@ const { createProfileClient } = require("@rareprotocol/rare-profile");
 import { createProfileClient } from "@rareprotocol/rare-profile";
 
 const client = createProfileClient({
-  baseUrl: "https://beta.rare.xyz", // beta host until GA on rare.xyz
+  baseUrl: "https://studio.superrare.com",
   token: process.env.RARE_PROFILE_TOKEN, // a slk_ CLI token
 });
 
@@ -300,9 +306,9 @@ const other = await client.profile.get({ slug: "someuser" });
 // Update profile
 await client.profile.update({ bio: "Updated via SDK", website: "https://example.com" });
 
-// Rename your public handle (username + URL slug are kept in sync server-side)
+// Rename your public handle (username + profile slug are kept in sync server-side)
 const renamed = await client.profile.updateUsername({ username: "alice" });
-// renamed.slug === "alice"  → https://beta.rare.xyz/alice
+// renamed.slug === "alice"; the public profile host is separate from the API base URL.
 
 // Add a link
 const link = await client.links.add({ title: "My Site", url: "https://example.com" });

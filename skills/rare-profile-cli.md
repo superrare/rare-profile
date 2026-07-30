@@ -22,8 +22,8 @@ scopes `purchase` and `wallet` can never be granted to a CLI token.
    per line (NDJSON). Never parse the human-readable output.
 2. **Branch on the exit code, not on stdout text.** See the table below.
 3. **Check `ok` in the JSON**, then read `data` (success) or `error` (failure).
-4. **Don't hardcode the base URL.** It defaults correctly; override only when needed
-   with `--base-url`. During beta the default is `https://beta.rare.xyz`.
+4. **Don't hardcode the base URL.** It defaults to the Studio API/login origin,
+   `https://studio.superrare.com`; override only when needed with `--base-url`.
 
 ## Output contract
 
@@ -54,9 +54,14 @@ rare-profile logout         # clear the stored token
 ```
 
 `login` prints a user code + an approval URL, then polls until a human approves it
-on rare.xyz. **It cannot be completed headlessly** — a person must click Approve.
+through the Studio API/login origin. **It cannot be completed headlessly** — a person
+must click Approve at the browser URL returned by the service.
 On success a `slk_` token is written to `~/.rare-profile/config.json` (mode 0600)
 along with the resolved `baseUrl`. Subsequent commands reuse it.
+
+An exact legacy configured value of `https://beta.rare.xyz` (with or without a
+trailing slash) resolves to Studio automatically. Explicit `--base-url` has highest
+precedence, and every other custom configured URL is preserved.
 
 For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 (`createProfileClient({ baseUrl, token })`) or by pre-seeding the config file.
@@ -66,7 +71,7 @@ For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 | Flag | Description |
 |------|-------------|
 | `--json` | Emit JSON (NDJSON). Use this always. |
-| `--base-url <url>` | Override API base URL (beta default: `https://beta.rare.xyz`). |
+| `--base-url <url>` | Override API base URL (default: `https://studio.superrare.com`). |
 
 ## Command map
 
@@ -96,10 +101,11 @@ rare-profile profile set --json --bio "Building on rare.xyz" --website https://e
   --display-name "Alice" --twitter alice --farcaster alice
 ```
 
-Change the public handle (renames both `@username` and the URL slug — kept in sync):
+Change the public handle (renames both `@username` and the profile slug — kept in sync):
 ```sh
 rare-profile profile set-username alice --json
-# Public URL becomes https://beta.rare.xyz/alice
+# Username and profile slug become "alice".
+# The public profile host is product-defined; do not derive it from the API base URL.
 ```
 
 Links:
