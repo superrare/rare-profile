@@ -49,8 +49,8 @@ export const creditGroupCommand: CommandHandler = async ({ client, args }) => {
         packCredits: positiveInt(args.flags["pack-credits"], "pack-credits"),
       });
       return { data, human: (d) => {
-        const result = d as { group: { id: string } };
-        return `Created credit group ${result.group.id}. Purchases remain paused. Attaching an approved game gates unpaid starts.`;
+        const result = d as { group: { id: string; purchasesPaused: boolean } };
+        return `Created credit group ${result.group.id}. Purchases are ${result.group.purchasesPaused ? "paused" : "enabled"}. Attaching an approved game gates unpaid starts.`;
       } };
     }
     case "list": {

@@ -239,9 +239,10 @@ rare-profile credit-group add-game <group-id> --app <hosted-game-app-id> \
 rare-profile credit-group list --app <hosted-game-app-id>
 rare-profile credit-group get <group-id>
 
-# Creation leaves purchases paused. Attaching an approved game to an active group
-# immediately gates unpaid starts; only attach live games when paid starts are ready.
-# Use a feature-enabled CLI release for these commands.
+# With Studio migration 083, new groups enable purchases immediately; review terms first.
+# Creation output reports the actual server pause state. Existing groups are unchanged.
+# Attaching an approved game to an active group immediately gates unpaid starts;
+# only attach live games when paid starts are ready. Use a feature-enabled CLI release.
 
 # Posts
 rare-profile post create --text "Hello rare.xyz!"
