@@ -91,6 +91,27 @@ For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 | `stats` | `links`, `views`, `creator` |
 | `events` | `list` (`--unread-only`), `read --ids <id1>,<id2>` |
 | `studio` | `image`, `run`, `runs`, `assets`, `projects`, `new-project` |
+| `credit-group` | `create`, `list`, `get`, `add-game` |
+
+## Shared game credits
+
+Use a feature-enabled CLI release. A group owner can register any existing hosted
+game by app ID; the game creator can discover its group with `list --app` and
+retrieve integration settings with `get`.
+
+```sh
+rare-profile credit-group create --slug arcade --name "Arcade credits" \
+  --chain-id <chain-id> --treasury <address> --usdc <address> \
+  --pack-price-atomic <token-units> --pack-credits 10
+rare-profile credit-group add-game <group-id> --app <hosted-game-app-id> \
+  --origin https://<exact-game-origin> --credits 1
+rare-profile credit-group list --app <hosted-game-app-id>
+rare-profile credit-group get <group-id>
+```
+
+Creation leaves purchases paused. Adding an approved game to an active group
+immediately gates unpaid game-session starts, even while purchases are paused.
+Do not attach a live game until its paid-start flow is ready.
 
 ## Common flows
 

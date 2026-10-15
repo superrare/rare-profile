@@ -11,6 +11,7 @@ import { msgCommand } from "./msg.js";
 import { statsCommand } from "./stats.js";
 import { eventsCommand } from "./events.js";
 import { studioCommand } from "./studio.js";
+import { creditGroupCommand } from "./credit-group.js";
 
 const whoamiCommand: CommandHandler = async ({ client }) => {
   const data = await client.profile.get();
@@ -35,5 +36,6 @@ export const dataCommands: Record<string, CommandHandler> = {
   stats: statsCommand,
   events: eventsCommand,
   studio: studioCommand,
+  "credit-group": creditGroupCommand,
 };
 export type { ProfileClient };
