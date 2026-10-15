@@ -109,9 +109,12 @@ rare-profile credit-group list --app <hosted-game-app-id>
 rare-profile credit-group get <group-id>
 ```
 
-Creation leaves purchases paused. Adding an approved game to an active group
-immediately gates unpaid game-session starts, even while purchases are paused.
-Do not attach a live game until its paid-start flow is ready.
+With Studio migration `083`, new groups enable purchases immediately. Check the
+treasury, chain, token and pack terms before creation. The creation output reports
+the actual server pause state; existing groups are unchanged, and payment-term
+edits still pause purchases. Adding an approved game to an active group immediately
+gates unpaid game-session starts, even while purchases are paused. Do not attach
+a live game until its paid-start flow is ready.
 
 ## Common flows
 
