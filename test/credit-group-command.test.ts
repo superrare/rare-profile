@@ -22,3 +22,19 @@ test("credit-group list and get human output exposes IDs, registrations, and exa
   assert.match(output, /packPriceAtomic: 9007199254740993123456789/);
   assert.match(output, /appId: app-1 appOrigin: https:\/\/game\.example creditCost: 3/);
 });
+
+test("credit-group add-game does not promise purchases remain paused", async () => {
+  const client = { creditGroups: { addApp: async () => ({
+    groupId: "group-1",
+    app: { productId: "app-1", origin: "https://game.example", creditCost: 3 },
+  }) } } as unknown as ProfileClient;
+  const result = await creditGroupCommand({
+    client,
+    json: false,
+    baseUrl: "",
+    args: { positionals: ["add-game", "group-1"], flags: { app: "app-1", origin: "https://game.example", credits: "3" } } as ParsedArgs,
+  });
+  const output = result.human(result.data);
+  assert.match(output, /Approved registrations on active groups gate unpaid starts/);
+  assert.doesNotMatch(output, /purchases remain paused/i);
+});

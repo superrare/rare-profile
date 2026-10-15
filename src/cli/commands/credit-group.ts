@@ -66,7 +66,7 @@ export const creditGroupCommand: CommandHandler = async ({ client, args }) => {
       if (!id) throw new UsageError("credit-group add-game requires GROUP_ID");
       const origin = required(args.flags.origin, "origin");
       const data = await client.creditGroups.addApp({ groupId: id, appId: required(args.flags.app, "app"), origin, creditCost: args.flags.credits === undefined ? undefined : positiveInt(args.flags.credits, "credits") });
-      return { data, human: (d) => { const result = d as {groupId:string;app:{productId:string;origin:string;creditCost:number}}; return `Added app ${result.app.productId} to group ${result.groupId}: ${result.app.origin} (creditCost ${result.app.creditCost}). Purchases remain paused. Attaching an approved game gates unpaid starts.`; } };
+      return { data, human: (d) => { const result = d as {groupId:string;app:{productId:string;origin:string;creditCost:number}}; return `Added app ${result.app.productId} to group ${result.groupId}: ${result.app.origin} (creditCost ${result.app.creditCost}). Approved registrations on active groups gate unpaid starts.`; } };
     }
     default: throw new UsageError(`Unknown credit-group subcommand "${sub ?? ""}". Valid subcommands: create, list, get, add-game`);
   }
