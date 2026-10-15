@@ -156,6 +156,16 @@ const COMMAND_SPECS: CmdSpec[] = [
     ],
   },
   {
+    name: "credit-group",
+    summary: "Manage credit groups for hosted games",
+    subs: [
+      ["create", "Create a group (--slug --name --chain-id --treasury --usdc --pack-price-atomic --pack-credits)"],
+      ["list", "List groups [--app APP_ID]"],
+      ["get", "Get builder configuration for GROUP_ID"],
+      ["add-game", "Attach a hosted game: add-game GROUP_ID --app APP_ID --origin ORIGIN [--credits N]"],
+    ],
+  },
+  {
     name: "tokens",
     summary: "Manage CLI tokens (opens the dashboard)",
     subs: [
@@ -186,10 +196,9 @@ function emitHelpJson(): void {
   );
 }
 
-/** Run a command through the existing handlers. Driven by process.argv (not Commander's
- * parsed values) so every handler keeps its `{ positionals, flags }` contract. */
-async function dispatch(command: string, json: boolean): Promise<void> {
-  const { positionals, flags } = parseArgs(process.argv.slice(2));
+/** Run a command through the existing handlers using the original argv values. */
+async function dispatch(command: string, json: boolean, argv: string[]): Promise<void> {
+  const { positionals, flags } = parseArgs(argv);
   const cfg = readConfig();
   const baseUrl = resolveBaseUrl({
     explicitBaseUrl: flags["base-url"] as string | undefined,
@@ -237,7 +246,7 @@ async function dispatch(command: string, json: boolean): Promise<void> {
   }
 }
 
-function buildProgram(json: boolean): Command {
+function buildProgram(json: boolean, argv: string[]): Command {
   const program = new Command();
   program
     .name("rare-profile")
@@ -256,12 +265,12 @@ function buildProgram(json: boolean): Command {
       .command(spec.name)
       .summary(spec.summary)
       .description(spec.summary)
-      .allowUnknownOption(true) // subcommand flags (--bio, --price, …) are parsed by the handler
-      .allowExcessArguments(true) // subcommands/operands are read from process.argv by the handler
+      .allowUnknownOption(true) // subcommand flags are parsed by the handler
+      .allowExcessArguments(true) // subcommands/operands are read by the raw argument parser
       .passThroughOptions(true)
       .action(async () => {
         if (spec.name === "version") return emitVersion(json);
-        await dispatch(spec.name, json);
+        await dispatch(spec.name, json, argv);
       });
     if (spec.usage) cmd.usage(spec.usage.replace(`${spec.name} `, "") + " [options]");
     if (spec.subs) {
@@ -279,7 +288,7 @@ function buildProgram(json: boolean): Command {
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const json = argv.includes("--json") || process.env.RARE_PROFILE_JSON === "1";
-  const program = buildProgram(json);
+  const program = buildProgram(json, argv);
 
   // --- Pre-handle the cases Commander would format differently than our contract. ---
   // First positional (the command). `--json`/`--base-url <url>` may precede it.

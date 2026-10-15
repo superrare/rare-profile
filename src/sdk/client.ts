@@ -11,6 +11,7 @@ import { makeSocialDomain } from "./domains/social.js";
 import { makeMessagesDomain } from "./domains/messages.js";
 import { makeAnalyticsDomain } from "./domains/analytics.js";
 import { makeEventsDomain } from "./domains/events.js";
+import { makeCreditGroupsDomain } from "./domains/credit-groups.js";
 import { makeStudioDomain } from "./domains/studio.js";
 
 export interface ProfileClientOptions {
@@ -54,6 +55,7 @@ export function createProfileClient(opts: ProfileClientOptions) {
     analytics: makeAnalyticsDomain(transport),
     events: makeEventsDomain(transport),
     studio: makeStudioDomain(transport),
+    creditGroups: makeCreditGroupsDomain(transport),
   };
 }
 

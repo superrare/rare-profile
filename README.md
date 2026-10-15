@@ -24,6 +24,7 @@ A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 - Analytics (link clicks, page views, creator stats)
 - Events (list, mark read)
 - AI Studio (generate image runs, poll run status, list assets, manage projects)
+- Credit groups (`credit-group create`, `list`, `get`, `add-game`) for hosted games
 
 **Out of scope** — rare-profile does **not** buy, move funds, or mint/deploy/auction NFTs. Those operations stay on the rare.xyz website and the separate `@rareprotocol/rare-cli`. The CLI token scopes `purchase` and `wallet` can never be granted to a CLI token (rejected server-side).
 
@@ -170,6 +171,7 @@ for a command's subcommands.
 | `stats` | `links`, `views`, `creator` |
 | `events` | `list`, `read` |
 | `studio` | `image`, `run`, `runs`, `assets`, `projects`, `new-project` |
+| `credit-group` | `create`, `list`, `get`, `add-game` |
 
 ### Examples
 
@@ -228,11 +230,25 @@ rare-profile app token <id>
 base64 in the commerce request, so valid larger builds stay within the deployment
 service's memory limits.
 
+# Shared game credits
+rare-profile credit-group create --slug arcade --name "Arcade credits" \
+  --chain-id <chain-id> --treasury <address> --usdc <address> \
+  --pack-price-atomic <token-units> --pack-credits 10
+rare-profile credit-group add-game <group-id> --app <hosted-game-app-id> \
+  --origin https://<exact-game-origin> --credits 1
+rare-profile credit-group list --app <hosted-game-app-id>
+rare-profile credit-group get <group-id>
+
+# Creation leaves purchases paused. Attaching an approved game to an active group
+# immediately gates unpaid starts; only attach live games when paid starts are ready.
+# Use a feature-enabled CLI release for these commands.
+
 # Posts
 rare-profile post create --text "Hello rare.xyz!"
 rare-profile post create --text "With media" --media ./image.png --media-type image/png
 rare-profile post list --store <storefrontId>
 rare-profile post comment <postId> "Great post!"
+
 rare-profile post comments <postId>
 rare-profile post rm <postId>
 

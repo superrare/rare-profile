@@ -234,3 +234,58 @@ test("RARE_PROFILE_JSON=1 forces JSON without the flag", async () => {
     assert.equal(j.ok, false);
   });
 });
+
+test("credit group setup returns builder configuration through the CLI", async () => {
+  const groupId = "group-1";
+  const appId = "app-1";
+  const group = {
+    id: groupId, slug: "arcade", displayName: "Arcade", chainId: 8453,
+    treasuryAddress: "0x1111111111111111111111111111111111111111",
+    usdcAddress: "0x2222222222222222222222222222222222222222",
+    packPriceAtomic: "9007199254740993123456789", packCredits: 20,
+    purchasesPaused: true, newUsesPaused: false, paymentConfigId: "payment-1",
+    apps: [{ productId: appId, origin: "https://game.example", creditCost: 3 }],
+  };
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/commerce": (body) => {
+      switch (body.action) {
+        case "create-credit-group": return { status: 201, json: { group } };
+        case "add-credit-group-app": return { json: { groupId, app: group.apps[0] } };
+        case "list-credit-groups": return { json: { groups: [{ id: groupId, slug: group.slug, displayName: group.displayName, chainId: group.chainId, apps: group.apps }] } };
+        case "get-credit-group": return { json: { group } };
+        default: return { status: 400, json: { error: "unexpected action" } };
+      }
+    },
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const invoke = async (args: string[]) => {
+        const result = await runCli([...args, "--json"], { home });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        return parseJsonStdout<{ data: Record<string, unknown> }>(result).data;
+      };
+      const created = await invoke([
+        "credit-group", "create", "--slug", "arcade", "--name", "Arcade", "--chain-id", "8453",
+        "--treasury", group.treasuryAddress, "--usdc", group.usdcAddress,
+        "--pack-price-atomic", group.packPriceAtomic, "--pack-credits", "20",
+      ]);
+      assert.equal((created.group as typeof group).id, groupId);
+      const attached = await invoke(["credit-group", "add-game", groupId, "--app", appId, "--origin", "https://game.example", "--credits", "3"]);
+      assert.equal((attached.app as typeof group.apps[0]).productId, appId);
+      const listed = await invoke(["credit-group", "list", "--app", appId]);
+      assert.equal((listed.groups as Array<{ id: string }>)[0]?.id, groupId);
+      const configured = await invoke(["credit-group", "get", groupId]);
+      assert.equal((configured.group as typeof group).apps[0]?.productId, appId);
+      assert.equal((configured.group as typeof group).packPriceAtomic, group.packPriceAtomic);
+      const commerceRequests = server.requests.filter((request) => request.path === "/api/commerce");
+      const actions = commerceRequests.map((request) => request.body.action);
+      assert.deepEqual(actions, ["create-credit-group", "add-credit-group-app", "list-credit-groups", "get-credit-group"]);
+      assert.equal(commerceRequests[1]?.body.appId, appId);
+      assert.equal(commerceRequests[1]?.body.origin, "https://game.example");
+    });
+  } finally {
+    await server.close();
+  }
+});
