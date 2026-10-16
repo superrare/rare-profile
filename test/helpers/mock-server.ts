@@ -2,20 +2,21 @@ import { createServer, type Server } from "node:http";
 import { arrayBuffer } from "node:stream/consumers";
 
 export interface MockRequest {
+  method: string;
   path: string;
   url: string;
   body: any;
   rawBody: Buffer;
   headers: Record<string, string | string[] | undefined>;
-}
 
+}
 export interface MockServer {
   url: string;
   requests: MockRequest[];
   close: () => Promise<void>;
 }
 
-export type Routes = Record<string, (body: any) => { status?: number; json: unknown }>;
+export type Routes = Record<string, (body: any, request: MockRequest) => { status?: number; json: unknown }>;
 
 /** Start a mock server. `routes` maps pathname → handler returning a JSON response. */
 export async function startMockServer(routes: Routes): Promise<MockServer> {
@@ -32,14 +33,15 @@ export async function startMockServer(routes: Routes): Promise<MockServer> {
         body = {};
       }
     }
-    requests.push({ path, url, body, rawBody, headers: { ...req.headers } });
+    const request: MockRequest = { method: req.method ?? "GET", path, url, body, rawBody, headers: { ...req.headers } };
+    requests.push(request);
     const handler = routes[path];
     if (!handler) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "not found" }));
       return;
     }
-    const out = handler(body);
+    const out = handler(body, request);
     res.writeHead(out.status ?? 200, { "content-type": "application/json" });
     res.end(JSON.stringify(out.json));
   });

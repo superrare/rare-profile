@@ -3,21 +3,45 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { strToU8, zipSync } from "fflate";
 import { appCommand } from "../src/cli/commands/app.js";
 import { postCommand } from "../src/cli/commands/post.js";
 import { socialCommand } from "../src/cli/commands/social.js";
 import { msgCommand } from "../src/cli/commands/msg.js";
 import { UsageError } from "../src/cli/commands/registry.js";
 
+function zipBytes(files: Record<string, Uint8Array>): Buffer {
+  return Buffer.from(zipSync(files));
+}
+
+function gameZip(): Buffer {
+  return zipBytes({
+    "server-verifier.js": strToU8("export function createRun() { return {}; }"),
+    "scoring-config.json": strToU8(JSON.stringify({ game: "example", maxTicks: 1200 })),
+  });
+}
+
 function fakeClient() {
   const calls: { name: string; input: unknown }[] = [];
-  const rec = (name: string) => async (input: unknown) => { calls.push({ name, input }); return {}; };
+  const rec = (name: string) => async (input?: unknown) => {
+    calls.push({ name, input });
+    if (name === "apps.add") return { id: "prod-new" };
+    if (name === "products.mine") {
+      return { products: [
+        { id: "prod-123", current_deployment_id: "deployment-123" },
+        { id: "prod-new", current_deployment_id: "deployment-new" },
+      ] };
+    }
+    return {};
+  };
   const client: unknown = {
     apps: {
       add: rec("apps.add"),
       update: rec("apps.update"),
       grantToken: rec("apps.grantToken"),
+      publishScoring: rec("apps.publishScoring"),
     },
+    products: { mine: rec("products.mine") },
     posts: {
       create: rec("posts.create"),
       delete: rec("posts.delete"),
@@ -57,7 +81,7 @@ test("app deploy reads zip bytes and calls apps.add", async () => {
   const { client, calls } = fakeClient();
   const dir = mkdtempSync(join(tmpdir(), "rare-test-app-"));
   const zipPath = join(dir, "app.zip");
-  const content = Buffer.from("fake-zip-content");
+  const content = zipBytes({ "index.html": strToU8("fixture") });
   writeFileSync(zipPath, content);
   try {
     await appCommand(ctx(client, ["app", "deploy"], {
@@ -79,11 +103,37 @@ test("app deploy reads zip bytes and calls apps.add", async () => {
   }
 });
 
+test("app deploy registers scoring for the newly created game deployment", async () => {
+  const { client, calls } = fakeClient();
+  const dir = mkdtempSync(join(tmpdir(), "rare-test-game-"));
+  const zipPath = join(dir, "game.zip");
+  writeFileSync(zipPath, gameZip());
+  try {
+    await appCommand(ctx(client, ["app", "deploy"], {
+      store: "store-1",
+      title: "Game",
+      price: "0",
+      zip: zipPath,
+      "max-attempts": "20",
+    }));
+    assert.deepEqual(calls.map(({ name }) => name), ["apps.add", "products.mine", "apps.publishScoring"]);
+    assert.deepEqual(calls[2]?.input, {
+      productId: "prod-new",
+      deploymentId: "deployment-new",
+      config: { game: "example", maxTicks: 1200 },
+      maxAttempts: 20,
+      authPolicy: "authenticated",
+    });
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
 test("app deploy with entryPoint flag passes it through", async () => {
   const { client, calls } = fakeClient();
   const dir = mkdtempSync(join(tmpdir(), "rare-test-app-"));
   const zipPath = join(dir, "app.zip");
-  writeFileSync(zipPath, Buffer.from("zip"));
+  writeFileSync(zipPath, zipBytes({ "index.html": strToU8("zip") }));
   try {
     await appCommand(ctx(client, ["app", "deploy"], {
       store: "s1", title: "T", price: "0", zip: zipPath, entry: "index.js",
@@ -108,13 +158,68 @@ test("app update reads zip bytes and calls apps.update", async () => {
   const { client, calls } = fakeClient();
   const dir = mkdtempSync(join(tmpdir(), "rare-test-app-"));
   const zipPath = join(dir, "update.zip");
-  writeFileSync(zipPath, Buffer.from("updated-zip"));
+  writeFileSync(zipPath, zipBytes({ "index.html": strToU8("updated-zip") }));
   try {
     await appCommand(ctx(client, ["app", "update", "prod-123"], { zip: zipPath }));
     assert.equal(calls[0].name, "apps.update");
     const input = calls[0].input as { productId: string; bytes: Uint8Array };
     assert.equal(input.productId, "prod-123");
     assert.ok(input.bytes.length > 0, "bytes should be non-empty");
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test("app update publishes scoring for the deployed verifier and current deployment", async () => {
+  const { client, calls } = fakeClient();
+  const dir = mkdtempSync(join(tmpdir(), "rare-test-game-"));
+  const zipPath = join(dir, "game.zip");
+  writeFileSync(zipPath, gameZip());
+  try {
+    await appCommand(ctx(client, ["app", "update", "prod-123"], {
+      zip: zipPath,
+      "max-attempts": "20",
+    }));
+    assert.deepEqual(calls.map(({ name }) => name), ["apps.update", "products.mine", "apps.publishScoring"]);
+    assert.deepEqual(calls[2]?.input, {
+      productId: "prod-123",
+      deploymentId: "deployment-123",
+      config: { game: "example", maxTicks: 1200 },
+      maxAttempts: 20,
+      authPolicy: "authenticated",
+    });
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test("game app update requires scoring limits before deployment", async () => {
+  const { client, calls } = fakeClient();
+  const dir = mkdtempSync(join(tmpdir(), "rare-test-game-"));
+  const zipPath = join(dir, "game.zip");
+  writeFileSync(zipPath, gameZip());
+  try {
+    await assert.rejects(
+      () => appCommand(ctx(client, ["app", "update", "prod-123"], { zip: zipPath })),
+      (error: unknown) => error instanceof UsageError,
+    );
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
+
+test("app scoring retries event registration without redeploying", async () => {
+  const { client, calls } = fakeClient();
+  const dir = mkdtempSync(join(tmpdir(), "rare-test-game-"));
+  const zipPath = join(dir, "game.zip");
+  writeFileSync(zipPath, gameZip());
+  try {
+    await appCommand(ctx(client, ["app", "scoring", "prod-123"], {
+      zip: zipPath,
+      "max-attempts": "20",
+    }));
+    assert.deepEqual(calls.map(({ name }) => name), ["products.mine", "apps.publishScoring"]);
   } finally {
     rmSync(dir, { recursive: true });
   }

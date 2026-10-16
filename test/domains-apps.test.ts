@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { ProfileApiError } from "../src/sdk/errors.js";
+import type { Transport } from "../src/sdk/transport.js";
 import { makeAppsDomain } from "../src/sdk/domains/apps.js";
 
 function fakeTransport() {
@@ -59,4 +61,97 @@ test("apps.grantToken → grant-app-token with productId", async () => {
   await makeAppsDomain(t).grantToken({ productId: "p_2" });
   assert.equal(calls[0].action, "grant-app-token");
   assert.deepEqual(calls[0].params, { productId: "p_2" });
+});
+test("apps.publishScoring registers a conforming verifier, publishes an event, and verifies activation", async () => {
+  const calls: Array<{ method: string; path: string; body?: object }> = [];
+  let activeReads = 0;
+  const t: Transport = {
+    post: async () => { throw new Error("Unexpected action POST"); },
+    postAction: async () => { throw new Error("Unexpected action POST"); },
+    postArchive: async () => { throw new Error("Unexpected archive POST"); },
+    get: async <T>(path: string, action: string, schema: import("zod").ZodType<T>): Promise<T> => {
+      calls.push({ method: "GET", path });
+      activeReads += 1;
+      if (activeReads === 1) throw new ProfileApiError(action, 404, "No active scoring event for this deployment", "GAME_NOT_FOUND");
+      return schema.parse({ version: "1", eventId: "event-1" });
+    },
+    postJson: async <T>(path: string, action: string, body: object, schema: import("zod").ZodType<T>): Promise<T> => {
+      calls.push({ method: "POST", path, body });
+      if (action === "game-scoring-create-verifier-version") {
+        return schema.parse({ version: "1", verifierVersion: { id: "verifier-1", conformance_status: "passed" } });
+      }
+      return schema.parse({ version: "1", event: { id: "event-1" } });
+    },
+  };
+  const result = await makeAppsDomain(t).publishScoring({
+    productId: "app-1",
+    deploymentId: "deployment-1",
+    config: { game: "flappy-bird", maxTicks: 1400 },
+    maxAttempts: 20,
+  });
+  assert.deepEqual(result, {
+    deploymentId: "deployment-1",
+    verifierVersionId: "verifier-1",
+    eventId: "event-1",
+    alreadyActive: false,
+  });
+  assert.deepEqual(calls.map(({ method, path }) => [method, path]), [
+    ["GET", "/api/v1/games/app-1/scoring/active-event"],
+    ["POST", "/api/v1/games/app-1/scoring/versions"],
+    ["POST", "/api/v1/games/app-1/scoring/events"],
+    ["GET", "/api/v1/games/app-1/scoring/active-event"],
+  ]);
+  assert.deepEqual(calls[1]?.body, {
+    deploymentId: "deployment-1",
+    config: { game: "flappy-bird", maxTicks: 1400 },
+  });
+  assert.deepEqual(calls[2]?.body, {
+    verifierVersionId: "verifier-1",
+    maxAttempts: 20,
+    authPolicy: "authenticated",
+  });
+});
+
+test("apps.publishScoring avoids duplicate events when the deployment already has one", async () => {
+  const calls: string[] = [];
+  const t: Transport = {
+    post: async () => { throw new Error("Unexpected action POST"); },
+    postAction: async () => { throw new Error("Unexpected action POST"); },
+    postArchive: async () => { throw new Error("Unexpected archive POST"); },
+    get: async <T>(_path: string, _action: string, schema: import("zod").ZodType<T>): Promise<T> => {
+      calls.push("GET");
+      return schema.parse({ version: "1", eventId: "existing-event" });
+    },
+    postJson: async () => { calls.push("POST"); throw new Error("must not create another scoring event"); },
+  };
+  const result = await makeAppsDomain(t).publishScoring({
+    productId: "app-1",
+    deploymentId: "deployment-1",
+    config: { maxTicks: 1400 },
+    maxAttempts: 20,
+  });
+  assert.equal(result.eventId, "existing-event");
+  assert.equal(result.alreadyActive, true);
+  assert.deepEqual(calls, ["GET"]);
+});
+
+test("apps.publishScoring does not mistake other 404s for a missing event", async () => {
+  const calls: string[] = [];
+  const t: Transport = {
+    post: async () => { throw new Error("Unexpected action POST"); },
+    postAction: async () => { throw new Error("Unexpected action POST"); },
+    postArchive: async () => { throw new Error("Unexpected archive POST"); },
+    get: async () => { throw new ProfileApiError("active-event", 404, "Published game not found", "GAME_NOT_FOUND"); },
+    postJson: async () => { calls.push("POST"); throw new Error("Unexpected scorer mutation"); },
+  };
+  await assert.rejects(
+    () => makeAppsDomain(t).publishScoring({
+      productId: "app-1",
+      deploymentId: "deployment-1",
+      config: { maxTicks: 1400 },
+      maxAttempts: 20,
+    }),
+    (error: unknown) => error instanceof ProfileApiError && error.message === "Published game not found",
+  );
+  assert.deepEqual(calls, []);
 });

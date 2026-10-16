@@ -33,6 +33,7 @@ test("client exposes expected domains and no money/admin methods", () => {
   ]) {
     assert.equal(typeof (client as any)[d], "object", `missing domain ${d}`);
   }
+  assert.equal(typeof client.apps.publishScoring, "function");
   const surface = JSON.stringify(Object.keys(client).concat(Object.keys((client as any).profile)));
   for (const forbidden of ["buy", "wallet", "purchase", "admin"]) {
     assert.ok(!surface.toLowerCase().includes(forbidden), `must not expose ${forbidden}`);
@@ -48,6 +49,7 @@ test("CommonJS require() loads the bundle and exposes the same surface", () => {
   assert.ok(Array.isArray(cjs.DEFAULT_CLI_SCOPES) && cjs.DEFAULT_CLI_SCOPES.includes("profile"));
   const client = cjs.createProfileClient({ baseUrl: "https://x.test", token: "slk_x" });
   assert.equal(typeof client.profile, "object");
+  assert.equal(typeof client.apps.publishScoring, "function");
 });
 
 test("dual-format build emits both declaration files", async () => {

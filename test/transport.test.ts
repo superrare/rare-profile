@@ -55,6 +55,41 @@ test("on 401 it refreshes once and retries with the new token", async () => {
   assert.equal((calls[1].init.headers as Record<string, string>).Authorization, "Bearer new");
 });
 
+test("direct scoring requests use JSON REST bodies and preserve nested error codes", async () => {
+  const { fn, calls } = mockFetch([
+    { status: 200, body: { id: "version-1" } },
+    { status: 404, body: { error: { code: "GAME_NOT_FOUND", message: "No active scoring event for this deployment" } } },
+  ]);
+  const t = createTransport({
+    baseUrl: "https://x.test",
+    fetchImpl: fn,
+    getToken: () => "jwt-1",
+    refresh: async () => "jwt-2",
+  });
+  const response = await t.postJson("/api/v1/games/app-1/scoring/versions", "create-version", {
+    deploymentId: "deploy-1",
+    config: { maxTicks: 1200 },
+  }, z.object({ id: z.string() }));
+  assert.deepEqual(response, { id: "version-1" });
+  assert.equal(calls[0]?.url, "https://x.test/api/v1/games/app-1/scoring/versions");
+  assert.equal(calls[0]?.init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]?.init.body as string), {
+    deploymentId: "deploy-1",
+    config: { maxTicks: 1200 },
+  });
+  assert.equal((calls[0]?.init.headers as Record<string, string>).Authorization, "Bearer jwt-1");
+
+  await assert.rejects(
+    () => t.get("/api/v1/games/app-1/scoring/active-event", "active-event", z.object({ eventId: z.string() })),
+    (error: unknown) => error instanceof ProfileApiError
+      && error.status === 404
+      && error.code === "GAME_NOT_FOUND"
+      && error.message === "No active scoring event for this deployment",
+  );
+  assert.equal(calls[1]?.init.method, "GET");
+  assert.equal(calls[1]?.init.body, undefined);
+});
+
 test("non-2xx (non-401) throws ProfileApiError with status and server message", async () => {
   const { fn } = mockFetch([{ status: 403, body: { error: "Action 'buy' is outside this token's scope" } }]);
   const t = createTransport({

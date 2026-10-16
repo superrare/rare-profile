@@ -5,3 +5,4 @@ export { DEFAULT_CLI_SCOPES, type CliScope } from "./scopes.js";
 // LinkSchema, AckSchema) are validation internals and deliberately stay unexported.
 export type { Profile, Link } from "./types.js";
 export type { CreditGroup, CreditGroupSummary, CreditGroupApp } from "./types.js";
+export type { PublishScoringInput, PublishScoringResult } from "./domains/apps.js";
