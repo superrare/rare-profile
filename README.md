@@ -17,7 +17,7 @@ A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 - Links (add, list, reorder, update, delete)
 - Storefronts (create, list, get, update)
 - Products (add with optional file upload, list, edit, unlist, delete, browse)
-- Apps (deploy zip, update, grant app token)
+- Apps (deploy/update bundles; register server-scoring verifiers and events; grant app tokens)
 - Posts (create with optional media, list, delete, comment)
 - Social graph (follow, unfollow, feed, followers, following)
 - Messages (inbox, conversation threads, search users)
@@ -222,13 +222,22 @@ rare-profile product rm <id>
 rare-profile product browse --filter featured
 
 # Apps (HTML/zip bundles sold as products)
-rare-profile app deploy --store <storefrontId> --title "My App" --price 2 --zip ./app.zip
-rare-profile app update <id> --zip ./app-v2.zip
+rare-profile app deploy --store <storefrontId> --title "My Game" --price 0 --zip ./game.zip --max-attempts 20
+rare-profile app update <id> --zip ./game-v2.zip --max-attempts 20
+rare-profile app scoring <id> --zip ./game-v2.zip --max-attempts 20  # retry scoring registration without redeploy
 rare-profile app token <id>
 
-`app deploy` streams the ZIP directly to Studio. The archive is not embedded as
-base64 in the commerce request, so valid larger builds stay within the deployment
-service's memory limits.
+Server-scored game archives must have root `server-verifier.js` and
+`scoring-config.json` (`maxTicks` from 1 to 100000). Deploy/update publishes the
+archive first, then registers that current deployment's verifier and scoring event.
+`--max-attempts` is required for games; `--auth-policy` defaults to `authenticated`
+and may be set to `any`. If scoring registration fails after upload, the CLI reports
+the app ID and retry command; use `app scoring` with the same ZIP, without deploying
+again. Apps without both root scoring files keep the existing deploy/update behavior.
+
+`app deploy` streams the ZIP directly to Studio rather than base64-encoding it
+inside a commerce request, keeping larger builds within the deployment service's
+memory limits.
 
 # Shared game credits
 rare-profile credit-group create --slug arcade --name "Arcade credits" \
@@ -389,7 +398,7 @@ CLI tokens are granted the following scopes at login (the `purchase` and `wallet
 | `links` | Link CRUD and reordering |
 | `storefronts` | Storefront CRUD |
 | `products` | Product CRUD, file upload, browse |
-| `apps` | App deploy/update/token |
+| `apps` | App deploy/update, verifier and scoring-event registration, app token |
 | `posts` | Post CRUD, comments |
 | `social` | Follow/unfollow, feed, followers/following |
 | `messages` | Send/read DMs, user search |

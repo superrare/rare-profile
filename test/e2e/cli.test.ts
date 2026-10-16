@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { strToU8, zipSync } from "fflate";
 import { runCli, withTempHome, parseJsonStdout } from "../helpers/cli.js";
 import { startMockServer } from "../helpers/mock-server.js";
 import { dataCommands } from "../../src/cli/commands/index.js";
@@ -184,7 +185,7 @@ test("app deploy streams the ZIP bytes to the dedicated endpoint", async () => {
     await withTempHome(async (home) => {
       await seedConfig(home, server.url);
       const zipPath = join(home, "app.zip");
-      const archive = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 1, 2, 3]);
+      const archive = Buffer.from(zipSync({ "index.html": strToU8("<html></html>") }));
       await writeFile(zipPath, archive);
 
       const result = await runCli(
@@ -220,6 +221,77 @@ test("app deploy streams the ZIP bytes to the dedicated endpoint", async () => {
       assert.equal(query.get("title"), "Interactive Garden");
       assert.equal(query.get("price"), "0");
       assert.equal(query.get("entryPoint"), "index.html");
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("app update registers the deployed verifier and activates its scoring event", async () => {
+  let activeReads = 0;
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/commerce": (body) => {
+      if (body.action === "update-app") return { json: { updated: true } };
+      if (body.action === "my-products") {
+        return { json: { products: [{ id: "app-1", current_deployment_id: "deployment-2" }] } };
+      }
+      return { status: 400, json: { error: `unexpected action ${String(body.action)}` } };
+    },
+    "/api/v1/games/app-1/scoring/active-event": (_body, request) => {
+      if (!request.headers.authorization) {
+        return { status: 401, json: { error: { code: "UNAUTHORIZED", message: "Unauthorized" } } };
+      }
+      activeReads += 1;
+      return activeReads === 1
+        ? { status: 404, json: { error: { code: "GAME_NOT_FOUND", message: "No active scoring event for this deployment" } } }
+        : { json: { version: "1", eventId: "event-1" } };
+    },
+    "/api/v1/games/app-1/scoring/versions": (body) => ({
+      json: { version: "1", verifierVersion: { id: "verifier-1", conformance_status: "passed", deploymentId: body.deploymentId } },
+    }),
+    "/api/v1/games/app-1/scoring/events": (body) => ({
+      json: { version: "1", event: { id: "event-1", verifierVersionId: body.verifierVersionId } },
+    }),
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const zipPath = join(home, "game.zip");
+      const archive = Buffer.from(zipSync({
+        "server-verifier.js": strToU8("export function createRun() { return {}; }"),
+        "scoring-config.json": strToU8(JSON.stringify({ game: "hopper", maxTicks: 1400 })),
+      }));
+      await writeFile(zipPath, archive);
+      const result = await runCli([
+        "app", "update", "app-1", "--zip", zipPath, "--max-attempts", "20", "--json",
+      ], { home });
+      assert.equal(result.code, 0, result.stderr || result.stdout);
+      const output = parseJsonStdout<{ data: { scoring: { eventId: string; verifierVersionId: string } } }>(result);
+      assert.equal(output.data.scoring.eventId, "event-1");
+      assert.equal(output.data.scoring.verifierVersionId, "verifier-1");
+      const scoringRequests = server.requests.filter((request) => request.path.includes("/scoring/"));
+      assert.deepEqual(scoringRequests.map(({ method, path }) => [method, path]), [
+        ["GET", "/api/v1/games/app-1/scoring/active-event"],
+        ["GET", "/api/v1/games/app-1/scoring/active-event"],
+        ["POST", "/api/v1/games/app-1/scoring/versions"],
+        ["POST", "/api/v1/games/app-1/scoring/events"],
+        ["GET", "/api/v1/games/app-1/scoring/active-event"],
+      ]);
+      assert.deepEqual(scoringRequests[2]?.body, {
+        deploymentId: "deployment-2",
+        config: { game: "hopper", maxTicks: 1400 },
+      });
+      assert.deepEqual(scoringRequests[3]?.body, {
+        verifierVersionId: "verifier-1",
+        maxAttempts: 20,
+        authPolicy: "authenticated",
+      });
+      assert.equal(scoringRequests[0]?.headers.authorization, undefined);
+      assert.deepEqual(
+        scoringRequests.slice(1).map((request) => request.headers.authorization),
+        Array.from({ length: 4 }, () => "Bearer jwt-1"),
+      );
     });
   } finally {
     await server.close();

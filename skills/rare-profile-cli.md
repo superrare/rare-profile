@@ -84,7 +84,7 @@ For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 | `link` | `add`, `list`, `rm`, `update`, `reorder` |
 | `store` | `create`, `list`, `get`, `update` |
 | `product` | `add`, `list`, `unlist`, `rm`, `edit`, `browse` |
-| `app` | `deploy`, `update`, `token` |
+| `app` | `deploy`, `update`, `scoring`, `token` |
 | `post` | `create`, `rm`, `list`, `comment`, `comments` |
 | `follow` / `unfollow` / `feed` / `followers` / `following` | social graph |
 | `msg` | `send`, `inbox`, `read`, `find` |
@@ -92,6 +92,31 @@ For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 | `events` | `list` (`--unread-only`), `read --ids <id1>,<id2>` |
 | `studio` | `image`, `run`, `runs`, `assets`, `projects`, `new-project` |
 | `credit-group` | `create`, `list`, `get`, `add-game` |
+
+### Publishing server-scored games
+
+For a game, put `server-verifier.js` and `scoring-config.json` at the ZIP root.
+The config must set integer `maxTicks` from 1 to 100000. Pass
+`--max-attempts <1-10000>` when deploying or updating a game:
+
+```sh
+rare-profile app deploy --store <storefront-id> --title "Game" --price 0 \
+  --zip ./game.zip --max-attempts 20
+rare-profile app update <app-id> --zip ./game-v2.zip --max-attempts 20
+```
+
+The CLI deploys the ZIP, resolves its current deployment ID, registers that
+deployment's verifier, creates the scoring event, and verifies the event is active.
+Authentication policy defaults to `authenticated`; `--auth-policy any` is optional.
+If upload succeeds but scorer setup fails, rerun registration without another
+deployment using the same ZIP and options:
+
+```sh
+rare-profile app scoring <app-id> --zip ./game-v2.zip --max-attempts 20
+```
+
+This registers scoring only; it does not create a credit group or attach the app
+to one. Complete those as a separate platform configuration step.
 
 ## Shared game credits
 

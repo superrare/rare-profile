@@ -11,6 +11,8 @@ export interface TransportOptions {
 export interface Transport {
   post<T>(action: string, params: object, schema: ZodType<T>): Promise<T>;
   postAction<T>(path: string, action: string, params: object, schema: ZodType<T>): Promise<T>;
+  get<T>(path: string, action: string, schema: ZodType<T>): Promise<T>;
+  postJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T>;
   postArchive<T>(
     path: string,
     params: Record<string, string | undefined>,
@@ -33,11 +35,40 @@ export function createTransport(opts: TransportOptions): Transport {
     });
   }
 
-  async function postAction<T>(path: string, action: string, params: object, schema: ZodType<T>): Promise<T> {
-    let res = await send(path, action, params, opts.getToken());
+  async function sendJson(
+    method: "GET" | "POST",
+    path: string,
+    body: object | undefined,
+    token: string | null,
+  ): Promise<Response> {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (body) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetchImpl(`${baseUrl}${path}`, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  }
+
+  function errorDetails(json: unknown): { message?: string; code?: string } {
+    if (!json || typeof json !== "object" || Array.isArray(json) || !("error" in json)) return {};
+    const error = json.error;
+    if (typeof error === "string") return { message: error };
+    if (!error || typeof error !== "object" || Array.isArray(error)) return {};
+    const message = "message" in error && typeof error.message === "string" ? error.message : undefined;
+    const code = "code" in error && typeof error.code === "string" ? error.code : undefined;
+    return { message, code };
+  }
+
+  async function requestJson<T>(
+    sendWithToken: (token: string | null) => Promise<Response>,
+    action: string,
+    schema: ZodType<T>,
+  ): Promise<T> {
+    let res = await sendWithToken(opts.getToken());
     if (res.status === 401) {
-      const fresh = await opts.refresh();
-      res = await send(path, action, params, fresh);
+      res = await sendWithToken(await opts.refresh());
       if (res.status === 401) {
         throw new ProfileAuthError("Authentication failed after token refresh. Run `rare-profile login`.");
       }
@@ -50,14 +81,26 @@ export function createTransport(opts: TransportOptions): Transport {
       throw new ProfileApiError(action, res.status, `Non-JSON response: ${text.slice(0, 200)}`);
     }
     if (!res.ok) {
-      const msg = (json as { error?: string })?.error ?? `Request failed (${res.status})`;
-      throw new ProfileApiError(action, res.status, msg);
+      const detail = errorDetails(json);
+      throw new ProfileApiError(action, res.status, detail.message ?? `Request failed (${res.status})`, detail.code);
     }
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
       throw new ProfileApiError(action, res.status, `Unexpected response shape: ${parsed.error.message}`);
     }
     return parsed.data;
+  }
+
+  async function postAction<T>(path: string, action: string, params: object, schema: ZodType<T>): Promise<T> {
+    return requestJson((token) => send(path, action, params, token), action, schema);
+  }
+
+  async function get<T>(path: string, action: string, schema: ZodType<T>): Promise<T> {
+    return requestJson((token) => sendJson("GET", path, undefined, token), action, schema);
+  }
+
+  async function postJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T> {
+    return requestJson((token) => sendJson("POST", path, body, token), action, schema);
   }
 
   async function postArchive<T>(
@@ -118,6 +161,8 @@ export function createTransport(opts: TransportOptions): Transport {
       return postAction("/api/commerce", action, params, schema);
     },
     postAction,
+    get,
+    postJson,
     postArchive,
   };
 }

@@ -2,11 +2,13 @@
 export class ProfileApiError extends Error {
   readonly status: number;
   readonly action: string;
-  constructor(action: string, status: number, message: string) {
+  readonly code?: string;
+  constructor(action: string, status: number, message: string, code?: string) {
     super(message);
     this.name = "ProfileApiError";
     this.action = action;
     this.status = status;
+    this.code = code;
   }
 }
 

@@ -95,8 +95,9 @@ const COMMAND_SPECS: CmdSpec[] = [
     name: "app",
     summary: "Manage HTML/zip apps sold as products",
     subs: [
-      ["deploy", "Deploy an app zip (--store --title --price --zip)"],
-      ["update", "Update an app (--zip)"],
+      ["deploy", "Deploy an app zip (--store --title --price --zip; games also need --max-attempts)"],
+      ["update", "Update an app (--zip; games also need --max-attempts)"],
+      ["scoring", "Register verifier and scoring event without redeploying"],
       ["token", "Grant an app token"],
     ],
   },
