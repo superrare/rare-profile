@@ -312,8 +312,8 @@ test("credit group setup returns builder configuration through the CLI", async (
   const appId = "app-1";
   const group = {
     id: groupId, slug: "arcade", displayName: "Arcade", chainId: 8453,
+    currency: "USDC", tokenAddress: "0x2222222222222222222222222222222222222222",
     treasuryAddress: "0x1111111111111111111111111111111111111111",
-    usdcAddress: "0x2222222222222222222222222222222222222222",
     packPriceAtomic: "9007199254740993123456789", packCredits: 20,
     purchasesPaused: true, newUsesPaused: false, paymentConfigId: "payment-1",
     apps: [{ productId: appId, origin: "https://game.example", creditCost: 3 }],
@@ -340,7 +340,7 @@ test("credit group setup returns builder configuration through the CLI", async (
       };
       const created = await invoke([
         "credit-group", "create", "--slug", "arcade", "--name", "Arcade", "--chain-id", "8453",
-        "--treasury", group.treasuryAddress, "--usdc", group.usdcAddress,
+        "--treasury", group.treasuryAddress, "--currency", "USDC", "--token-address", group.tokenAddress,
         "--pack-price-atomic", group.packPriceAtomic, "--pack-credits", "20",
       ]);
       assert.equal((created.group as typeof group).id, groupId);
@@ -360,4 +360,120 @@ test("credit group setup returns builder configuration through the CLI", async (
   } finally {
     await server.close();
   }
+});
+
+test("operator grant CLI returns stable JSON/human receipts and conventional usage/API errors", async () => {
+  const groupId = "11111111-1111-4111-8111-111111111111";
+  const address = `0x${"ab".repeat(20)}`;
+  const grant = {
+    id: "22222222-2222-4222-8222-222222222222", groupId,
+    accountId: "33333333-3333-4333-8333-333333333333", address, credits: 3,
+    operatorProfileId: "44444444-4444-4444-8444-444444444444",
+    idempotencyKey: "campaign-wallet-001", reason: "Campaign allocation", createdAt: "2026-10-19T09:00:00.000Z",
+  };
+  let conflict = false;
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/commerce": (body) => {
+      assert.deepEqual(body, { action: "grant-credit-group-credits", groupId, address, credits: 3, idempotencyKey: grant.idempotencyKey, reason: grant.reason });
+      return conflict ? { status: 409, json: { error: "Idempotency conflict" } } : { json: { grant } };
+    },
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const args = ["credit-group", "grant", groupId, "--address", address, "--credits", "3", "--idempotency-key", grant.idempotencyKey, "--reason", " Campaign allocation "];
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await runCli([...args, "--json"], { home });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        const receipt = parseJsonStdout<{ ok: boolean; data: { grant: typeof grant } }>(result);
+        assert.equal(receipt.ok, true);
+        assert.deepEqual(receipt.data, { grant });
+      }
+      const human = await runCli(args, { home });
+      assert.equal(human.code, 0);
+      assert.match(human.stdout, /Granted 3 credits.*Receipt: 22222222.*key: campaign-wallet-001/);
+      const beforeInvalid = server.requests.length;
+      const invalid = await runCli(["credit-group", "grant", groupId, "--address", address, "--credits", "1.5", "--json"], { home });
+      assert.equal(invalid.code, 2);
+      assert.equal(parseJsonStdout<{ ok: boolean }>(invalid).ok, false);
+      assert.equal(server.requests.length, beforeInvalid);
+      conflict = true;
+      const rejected = await runCli([...args, "--json"], { home });
+      assert.equal(rejected.code, 1);
+      const error = parseJsonStdout<{ ok: boolean; error: { status: number; message: string } }>(rejected);
+      assert.equal(error.ok, false);
+      assert.equal(error.error.status, 409);
+      assert.match(error.error.message, /Idempotency conflict/);
+    });
+  } finally { await server.close(); }
+});
+
+test("operator usage CLI preserves exact totals, cursor pages, human semantics and error exit codes", async () => {
+  const groupId = "11111111-1111-4111-8111-111111111111";
+  const appId = "22222222-2222-4222-8222-222222222222";
+  const from = "2026-10-19T00:00:00.000Z";
+  const to = "2026-10-26T00:00:00.000Z";
+  const totals = { capturedPlays: "9007199254740993", creditsConsumed: "27021597764222979", completedPlays: "1" };
+  let missing = false;
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/commerce": (body) => {
+      assert.equal(body.action, "get-credit-group-usage");
+      assert.equal(body.groupId, groupId);
+      assert.equal(body.from, from);
+      assert.equal(body.to, to);
+      assert.equal(body.limit, 1);
+      if (missing) return { status: 404, json: { error: "Group not found" } };
+      if (body.afterAppId !== undefined) {
+        assert.equal(body.afterAppId, appId);
+        return { json: { groupId, from, to, totals, games: [], page: { hasMore: false, nextCursor: null } } };
+      }
+      return { json: { groupId, from, to, totals, games: [{ appId, title: "Arcade", capturedPlays: "2", creditsConsumed: "6", completedPlays: "1" }], page: { hasMore: true, nextCursor: appId } } };
+    },
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const args = ["credit-group", "usage", groupId, "--from", "2026-10-19T05:30:00+05:30", "--to", to, "--limit", "1"];
+      const first = await runCli([...args, "--json"], { home });
+      assert.equal(first.code, 0, first.stderr || first.stdout);
+      const payload = parseJsonStdout<{ ok: boolean; command: string; data: { totals: typeof totals; page: { hasMore: boolean; nextCursor: string | null } } }>(first);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.command, "credit-group");
+      assert.deepEqual(payload.data.totals, totals);
+      assert.deepEqual(payload.data.page, { hasMore: true, nextCursor: appId });
+      assert.equal(server.requests.filter((request) => request.path === "/api/commerce").length, 1);
+      const human = await runCli(args, { home });
+      assert.equal(human.code, 0);
+      assert.match(human.stdout, /Whole interval totals: capturedPlays: 9007199254740993/);
+      assert.match(human.stdout, /Current page: 1 games/);
+      assert.match(human.stdout, /use --after 22222222/);
+      assert.match(human.stdout, /Completed counts reflect current completion status/);
+      const empty = await runCli([...args, "--after", appId, "--json"], { home });
+      assert.equal(empty.code, 0);
+      assert.deepEqual(parseJsonStdout<{ data: { totals: typeof totals; games: unknown[]; page: { hasMore: boolean; nextCursor: null } } }>(empty).data, {
+        groupId, from, to, totals, games: [], page: { hasMore: false, nextCursor: null },
+      });
+      const emptyHuman = await runCli([...args, "--after", appId], { home });
+      assert.equal(emptyHuman.code, 0);
+      assert.match(emptyHuman.stdout, /Current page: 0 games/);
+      assert.match(emptyHuman.stdout, /hasMore: false; nextCursor: none/);
+      const beforeInvalid = server.requests.length;
+      const invalid = await runCli(["credit-group", "usage", groupId, "--from", "2026-10-19", "--to", to, "--json"], { home });
+      assert.equal(invalid.code, 2);
+      assert.equal(parseJsonStdout<{ ok: boolean }>(invalid).ok, false);
+      assert.equal(server.requests.length, beforeInvalid);
+      missing = true;
+      const rejected = await runCli([...args, "--json"], { home });
+      assert.equal(rejected.code, 1);
+      const error = parseJsonStdout<{ ok: boolean; error: { status: number; message: string } }>(rejected);
+      assert.equal(error.ok, false);
+      assert.equal(error.error.status, 404);
+      assert.equal(error.error.message, "Group not found");
+      const help = await runCli(["help", "credit-group"], { home });
+      assert.equal(help.code, 0);
+      assert.match(help.stdout, /usage.*--from RFC3339 --to RFC3339/);
+    });
+  } finally { await server.close(); }
 });

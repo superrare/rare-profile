@@ -24,7 +24,7 @@ A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 - Analytics (link clicks, page views, creator stats)
 - Events (list, mark read)
 - AI Studio (generate image runs, poll run status, list assets, manage projects)
-- Credit groups (`credit-group create`, `list`, `get`, `add-game`) for hosted games
+- Credit groups (`credit-group create`, `list`, `get`, `add-game`, `grant`, `usage`) for hosted games
 
 **Out of scope** — rare-profile does **not** buy, move funds, or mint/deploy/auction NFTs. Those operations stay on the rare.xyz website and the separate `@rareprotocol/rare-cli`. The CLI token scopes `purchase` and `wallet` can never be granted to a CLI token (rejected server-side).
 
@@ -171,7 +171,7 @@ for a command's subcommands.
 | `stats` | `links`, `views`, `creator` |
 | `events` | `list`, `read` |
 | `studio` | `image`, `run`, `runs`, `assets`, `projects`, `new-project` |
-| `credit-group` | `create`, `list`, `get`, `add-game` |
+| `credit-group` | `create`, `update`, `resume-purchases`, `list`, `get`, `add-game`, `grant`, `usage` |
 
 ### Examples
 
@@ -241,12 +241,18 @@ memory limits.
 
 # Shared game credits
 rare-profile credit-group create --slug arcade --name "Arcade credits" \
-  --chain-id <chain-id> --treasury <address> --usdc <address> \
+  --chain-id <chain-id> --currency USDC --token-address <address> --treasury <address> \
   --pack-price-atomic <token-units> --pack-credits 10
+rare-profile credit-group update <group-id> --currency ETH --treasury <address> \
+  --pack-price-atomic <wei> --pack-credits 10
+rare-profile credit-group resume-purchases <group-id>
 rare-profile credit-group add-game <group-id> --app <hosted-game-app-id> \
   --origin https://<exact-game-origin> --credits 1
 rare-profile credit-group list --app <hosted-game-app-id>
 rare-profile credit-group get <group-id>
+rare-profile credit-group grant 11111111-1111-4111-8111-111111111111 \
+  --address 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --credits 3 \
+  --idempotency-key campaign-wallet-001 --reason "Campaign allocation" --json
 
 # With Studio migration 083, new groups enable purchases immediately; review terms first.
 # Creation output reports the actual server pause state. Existing groups are unchanged.
@@ -305,6 +311,44 @@ rare-profile profile show --json
 RARE_PROFILE_JSON=1 rare-profile link list
 ```
 
+### Operator credit allocations
+
+Only the authenticated current group operator can allocate credits, using the
+existing creator apps-write commerce authorization. Operator identity is derived
+server-side, never supplied by the caller. Existing privileged database
+administrators and service credentials remain trusted.
+
+`credit-group grant` requires a UUID group ID, an EVM wallet address, an integer
+credit amount from 1 through 2147483647, a trimmed reason of 1–500 characters, and
+an explicitly supplied 8–128-character idempotency key matching
+`[A-Za-z0-9][A-Za-z0-9._:-]{7,127}`. Addresses are normalized to lowercase.
+Reuse the same key and payload after an uncertain outcome: identical retries
+return the same receipt without another allocation; changed payloads return
+HTTP 409. Missing groups and nonoperators return HTTP 404. Disabled groups
+reject grants with HTTP 409, while purchase/new-use pauses do not prevent
+allocation and remain unchanged.
+
+Grants do not move funds, enable spending, revoke balances, or apply NFT
+eligibility rules. Human output displays a receipt; `--json` returns the normal
+success envelope with `data.grant` containing `id`, `groupId`, `accountId`,
+`address`, numeric `credits`, `operatorProfileId`, `idempotencyKey`, `reason`,
+and ISO `createdAt`. No mutable balance is included in the receipt.
+
+### Operator usage reports
+
+```sh
+rare-profile credit-group usage GROUP_ID \
+  --from 2026-10-19T00:00:00Z --to 2026-10-26T00:00:00Z \
+  --limit 100 --json
+```
+
+Only the current group operator can read this report, using creator `apps` authorization. Studio migration `086_credit_group_usage.sql` and the reporting handler must be deployed. Supply valid timezone-qualified timestamps with `from < to`; the CLI normalizes them to UTC. Missing/nonowned groups return 404, including when an actor is forged in a request body.
+
+The report counts immutable credit captures in `[from,to)`, grouped by game. `capturedPlays`, `creditsConsumed` and `completedPlays` are decimal strings, never floating-point numbers. Completed plays reflect current status within the captured cohort and may finish after the interval. Uncharged reservations/cancellations, purchases and grants are excluded; charged abandoned/expired runs remain consumed. Historical disabled groups and suspended registrations are included. Credits are not revenue or a free-versus-paid spend breakdown.
+
+`totals` covers the whole window; `games` is one UUID-ordered page. `limit` is 1–100, default 100. If `page.hasMore`, rerun with `--after APP_ID` using `page.nextCursor` and the same interval. There is no automatic page crawl or frozen cross-page snapshot. Human output distinguishes totals from the current page; standard JSON returns the report under `data`.
+
+
 ---
 
 ## SDK usage
@@ -325,6 +369,27 @@ const client = createProfileClient({
   baseUrl: "https://studio.superrare.com",
   token: process.env.RARE_PROFILE_TOKEN, // a slk_ CLI token
 });
+
+// Allocate operator credits; retain this input/key for retries.
+const allocation: import("@rareprotocol/rare-profile").GrantCreditGroupCreditsInput = {
+  groupId: "11111111-1111-4111-8111-111111111111",
+  address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  credits: 3,
+  idempotencyKey: "campaign-wallet-001",
+  reason: "Campaign allocation",
+};
+const receipt: import("@rareprotocol/rare-profile").CreditGroupGrantResult =
+  await client.creditGroups.grant(allocation);
+console.log(receipt.grant.id);
+
+const usage: import("@rareprotocol/rare-profile").CreditGroupUsageResult =
+  await client.creditGroups.usage({
+    groupId: allocation.groupId,
+    from: "2026-10-19T00:00:00Z",
+    to: "2026-10-26T00:00:00Z",
+    limit: 100,
+  });
+console.log(usage.totals.creditsConsumed); // decimal string; not ETH revenue
 
 // Get your profile
 const profile = await client.profile.get();

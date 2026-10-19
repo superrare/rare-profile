@@ -160,10 +160,14 @@ const COMMAND_SPECS: CmdSpec[] = [
     name: "credit-group",
     summary: "Manage credit groups for hosted games",
     subs: [
-      ["create", "Create a group (--slug --name --chain-id --treasury --usdc --pack-price-atomic --pack-credits)"],
+      ["create", "Create a group (--slug --name --chain-id --currency --token-address --treasury --pack-price-atomic --pack-credits)"],
+      ["update", "Replace future payment terms: update GROUP_ID --currency --token-address --treasury --pack-price-atomic --pack-credits"],
+      ["resume-purchases", "Explicitly resume purchases for GROUP_ID"],
       ["list", "List groups [--app APP_ID]"],
       ["get", "Get builder configuration for GROUP_ID"],
+      ["usage", "Operator report: usage GROUP_ID --from RFC3339 --to RFC3339 [--limit 1..100 --after APP_ID] [--json]; whole-range totals plus one game page; explicit timezone required"],
       ["add-game", "Attach a hosted game: add-game GROUP_ID --app APP_ID --origin ORIGIN [--credits N]"],
+      ["grant", "Operator allocation: grant GROUP_ID --address ADDRESS --credits N --idempotency-key KEY --reason REASON (1..2147483647 credits; key required for safe retries)"],
     ],
   },
   {
