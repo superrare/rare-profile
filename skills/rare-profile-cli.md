@@ -91,7 +91,7 @@ For fully non-interactive use (CI/agents), supply a pre-issued token via the SDK
 | `stats` | `links`, `views`, `creator` |
 | `events` | `list` (`--unread-only`), `read --ids <id1>,<id2>` |
 | `studio` | `image`, `run`, `runs`, `assets`, `projects`, `new-project` |
-| `credit-group` | `create`, `list`, `get`, `add-game` |
+| `credit-group` | `create`, `update`, `resume-purchases`, `list`, `get`, `add-game`, `grant`, `usage` |
 
 ### Publishing server-scored games
 
@@ -126,12 +126,18 @@ retrieve integration settings with `get`.
 
 ```sh
 rare-profile credit-group create --slug arcade --name "Arcade credits" \
-  --chain-id <chain-id> --treasury <address> --usdc <address> \
+  --chain-id <chain-id> --currency USDC --token-address <address> --treasury <address> \
   --pack-price-atomic <token-units> --pack-credits 10
+rare-profile credit-group update <group-id> --currency ETH --treasury <address> \
+  --pack-price-atomic <wei> --pack-credits 10
+rare-profile credit-group resume-purchases <group-id>
 rare-profile credit-group add-game <group-id> --app <hosted-game-app-id> \
   --origin https://<exact-game-origin> --credits 1
 rare-profile credit-group list --app <hosted-game-app-id>
 rare-profile credit-group get <group-id>
+rare-profile credit-group grant 11111111-1111-4111-8111-111111111111 \
+  --address 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --credits 3 \
+  --idempotency-key campaign-wallet-001 --reason "Campaign allocation" --json
 ```
 
 With Studio migration `083`, new groups enable purchases immediately. Check the
@@ -140,6 +146,43 @@ the actual server pause state; existing groups are unchanged, and payment-term
 edits still pause purchases. Adding an approved game to an active group immediately
 gates unpaid game-session starts, even while purchases are paused. Do not attach
 a live game until its paid-start flow is ready.
+
+### Operator credit allocations
+
+Only the authenticated current group operator can grant credits, using existing
+creator apps-write commerce authorization. Operator identity comes from the
+server-authenticated user, not a caller-supplied field. Existing privileged
+database administrators and service credentials remain trusted.
+
+Grant input requires a UUID group ID, an EVM recipient wallet, an integer amount
+from 1 through 2147483647, a trimmed reason of 1–500 characters, and an explicit
+8–128-character idempotency key matching `[A-Za-z0-9][A-Za-z0-9._:-]{7,127}`.
+The recipient address is normalized to lowercase. Never invent a new key when
+retrying an uncertain outcome: reuse the same key and payload. Identical retries
+return the same receipt without allocating twice; changed payloads return HTTP
+409. Missing groups and nonoperators return HTTP 404. Disabled groups reject
+grants with HTTP 409. Purchase/new-use pauses do not prevent granting, and grants
+do not change those pauses or enable spending.
+
+Grants do not move funds, revoke balances, or apply NFT eligibility rules.
+Human output displays a receipt; normal `--json` output returns `data.grant`
+with `id`, `groupId`, `accountId`, `address`, numeric `credits`,
+`operatorProfileId`, `idempotencyKey`, `reason`, and ISO `createdAt`, never a
+mutable balance. SDK callers use `client.creditGroups.grant(input)` with exported
+`GrantCreditGroupCreditsInput` and `CreditGroupGrantResult` types.
+
+### Operator usage reports
+
+```sh
+rare-profile credit-group usage GROUP_ID \
+  --from 2026-10-19T00:00:00Z --to 2026-10-26T00:00:00Z \
+  --limit 100 --json
+```
+
+Requires the current group operator's creator `apps` authorization and deployed Studio migration `086`/report handler. Require explicit valid timezone-qualified bounds with `from < to`; never guess a local week. Missing/nonowned groups return 404. The report uses capture-ledger timestamps in `[from,to)`: `capturedPlays`, `creditsConsumed` and `completedPlays` are nonnegative decimal strings. Completion is current status within that captured cohort and can happen after the window. Reservations, uncharged cancellations and credit issuance do not count; charged abandoned/expired runs do. Historical disabled groups and suspended registrations remain reportable.
+
+Keep whole-window `totals` separate from the current `games` page. For the next UUID-ordered page, pass `--after` with `page.nextCursor`, preserving the interval. Limit is 1–100, default 100. No automatic crawl or frozen cross-page snapshot. SDK: `client.creditGroups.usage(input)` with `CreditGroupUsageInput` and `CreditGroupUsageResult`. Credits are not revenue, a paid/free spend attribution, a jackpot amount, or weekly winner selection. Never embed operator credentials in a public prize-pool page.
+
 
 ## Common flows
 

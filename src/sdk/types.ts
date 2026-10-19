@@ -3,7 +3,8 @@ import { z } from "zod";
 export const CreditGroupAppSchema = z.object({ productId: z.string(), origin: z.string(), creditCost: z.number().int() }).passthrough();
 export const CreditGroupSchema = z.object({
   id: z.string(), slug: z.string(), displayName: z.string(), chainId: z.number().int(),
-  treasuryAddress: z.string(), usdcAddress: z.string(), packPriceAtomic: z.string(), packCredits: z.number().int(),
+  currency: z.enum(["ETH", "USDC"]), tokenAddress: z.string().nullable(),
+  treasuryAddress: z.string(), packPriceAtomic: z.string(), packCredits: z.number().int(),
   purchasesPaused: z.boolean(), newUsesPaused: z.boolean(), paymentConfigId: z.string().nullable(), apps: z.array(CreditGroupAppSchema),
 }).passthrough();
 export const CreditGroupSummarySchema = z.object({ id: z.string(), slug: z.string(), displayName: z.string(), chainId: z.number().int(), apps: z.array(CreditGroupAppSchema) }).passthrough();
@@ -13,6 +14,39 @@ export const CreditGroupAppResultSchema = z.object({ groupId: z.string(), app: C
 export type CreditGroup = z.infer<typeof CreditGroupSchema>;
 export type CreditGroupSummary = z.infer<typeof CreditGroupSummarySchema>;
 export type CreditGroupApp = z.infer<typeof CreditGroupAppSchema>;
+
+export const CreditGroupGrantSchema = z.object({
+  id: z.string().uuid(), groupId: z.string().uuid(), accountId: z.string().uuid(),
+  address: z.string().regex(/^0x[0-9a-f]{40}$/),
+  credits: z.number().int().positive().max(2147483647),
+  operatorProfileId: z.string().uuid(),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/),
+  reason: z.string().min(1).max(500).refine((value) => value === value.trim()),
+  createdAt: z.string().datetime({ offset: true }),
+});
+export const CreditGroupGrantResultSchema = z.object({ grant: CreditGroupGrantSchema });
+export type CreditGroupGrant = z.infer<typeof CreditGroupGrantSchema>;
+export type CreditGroupGrantResult = z.infer<typeof CreditGroupGrantResultSchema>;
+
+const CreditGroupUsageCountersSchema = z.object({
+  capturedPlays: z.string().regex(/^\d+$/),
+  creditsConsumed: z.string().regex(/^\d+$/),
+  completedPlays: z.string().regex(/^\d+$/),
+});
+export const CreditGroupUsageGameSchema = CreditGroupUsageCountersSchema.extend({
+  appId: z.string().uuid(),
+  title: z.string(),
+});
+export const CreditGroupUsageResultSchema = z.object({
+  groupId: z.string().uuid(),
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+  totals: CreditGroupUsageCountersSchema,
+  games: z.array(CreditGroupUsageGameSchema),
+  page: z.object({ hasMore: z.boolean(), nextCursor: z.string().uuid().nullable() }),
+});
+export type CreditGroupUsageGame = z.infer<typeof CreditGroupUsageGameSchema>;
+export type CreditGroupUsageResult = z.infer<typeof CreditGroupUsageResultSchema>;
 
 /** Most write endpoints return the full row; we validate the fields we rely on and allow extras. */
 export const ProfileSchema = z.object({
