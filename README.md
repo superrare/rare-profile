@@ -32,6 +32,8 @@ A wallet-less CLI + SDK for managing your rare.xyz profile programmatically.
 
 ## Install
 
+The CLI and SDK are published as a stable release on npm's `latest` channel. The install commands below use that channel; no `@beta` tag is required.
+
 ```sh
 npm install -g @rareprotocol/rare-profile
 rare-profile --help
