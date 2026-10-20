@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { profileCommand } from "../src/cli/commands/profile.js";
 import { linkCommand } from "../src/cli/commands/link.js";
-import { storeCommand } from "../src/cli/commands/store.js";
+import { renderStorefrontList, storeCommand } from "../src/cli/commands/store.js";
 import { productCommand } from "../src/cli/commands/product.js";
 import { UsageError } from "../src/cli/commands/registry.js";
 
@@ -250,6 +250,31 @@ test("store list calls storefronts.mine", async () => {
   const { client, calls } = fakeClient();
   await storeCommand(ctx(client, ["store", "list"]));
   assert.equal(calls[0].name, "storefronts.mine");
+});
+
+test("store list human output renders storefront arrays", () => {
+  assert.equal(
+    renderStorefrontList([{ id: "sf_1", name: "My Store", slug: "my-store" }]),
+    "1 storefront: My Store (/my-store, sf_1)",
+  );
+});
+
+test("store list human output renders wrapped storefront arrays", () => {
+  assert.equal(
+    renderStorefrontList({
+      data: {
+        storefronts: [
+          { id: "sf_1", name: "My Store", slug: "my-store" },
+          { id: "sf_2", name: "Second Store" },
+        ],
+      },
+    }),
+    "2 storefronts: My Store (/my-store, sf_1); Second Store (sf_2)",
+  );
+});
+
+test("store list human output renders empty recognized lists", () => {
+  assert.equal(renderStorefrontList({ storefronts: [] }), "0 storefronts");
 });
 
 test("store get calls storefronts.get with slug", async () => {
