@@ -21,10 +21,10 @@ export interface AppSourceDownload {
 /** Pure: read the download metadata Studio sends with an app source ZIP (no I/O). */
 export function parseAppSourceHeaders(productId: string, headers: Headers): Omit<AppSourceDownload, "bytes"> {
   const disposition = headers.get("content-disposition") ?? "";
-  const named = /filename="([^"\/]+)"/.exec(disposition)?.[1];
+  const named = /filename="([^"]+)"/.exec(disposition)?.[1];
   const version = Number(headers.get("x-studio-deployment-version"));
   return {
-    fileName: named ?? `app-${productId}.zip`,
+    fileName: named !== undefined && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(named) ? named : `app-${productId}.zip`,
     version: Number.isSafeInteger(version) && version > 0 ? version : null,
     rebuilt: headers.get("x-studio-source") === "rebuilt",
   };

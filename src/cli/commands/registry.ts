@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import type { ProfileClient } from "../../sdk/index.js";
 import type { ParsedArgs } from "../args.js";
 
@@ -35,10 +35,12 @@ export function readFileBytes(path: string): Uint8Array {
 
 /** Write bytes to a user-supplied path, refusing to overwrite unless forced. */
 export function writeFileBytes(path: string, bytes: Uint8Array, force: boolean): void {
-  if (!force && existsSync(path)) throw new UsageError(`${path} already exists; pass --force to overwrite it`);
   try {
-    writeFileSync(path, bytes);
+    writeFileSync(path, bytes, { flag: force ? "w" : "wx" });
   } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new UsageError(`${path} already exists; pass --force to overwrite it`);
+    }
     throw new UsageError(`Cannot write file ${path}: ${(e as Error).message}`);
   }
 }

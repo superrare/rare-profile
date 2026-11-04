@@ -208,6 +208,7 @@ export const appCommand: CommandHandler = async ({ client, args }) => {
     case "download": {
       const id = args.positionals[2];
       if (!id) throw new UsageError("app download requires a product ID: rare-profile app download <id> [--out <path>]");
+      if (flags.out !== undefined && typeof flags.out !== "string") throw new UsageError("--out requires a file path");
       const download = await client.apps.download({ productId: id });
       const out = typeof flags.out === "string" ? flags.out : download.fileName;
       writeFileBytes(out, download.bytes, flags.force === true);

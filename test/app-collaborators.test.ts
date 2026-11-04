@@ -66,10 +66,12 @@ test("apps.download surfaces Studio's error message", async () => {
     error instanceof ProfileApiError && error.status === 404 && error.message.includes("App not found or not yours"));
 });
 
-test("parseAppSourceHeaders falls back to a safe file name and flags rebuilt ZIPs", () => {
-  const headers = new Headers({ "content-disposition": 'attachment; filename="../evil.zip"', "x-studio-source": "rebuilt" });
-  assert.deepEqual(parseAppSourceHeaders("app-1", headers), { fileName: "app-app-1.zip", version: null, rebuilt: true });
-});
+for (const unsafe of ["../evil.zip", "..\\evil.zip", "C:evil.zip", "..", ".hidden.zip"]) {
+  test(`parseAppSourceHeaders replaces the unsafe file name ${unsafe}`, () => {
+    const headers = new Headers({ "content-disposition": `attachment; filename="${unsafe}"`, "x-studio-source": "rebuilt" });
+    assert.deepEqual(parseAppSourceHeaders("app-1", headers), { fileName: "app-app-1.zip", version: null, rebuilt: true });
+  });
+}
 
 test("collaborator methods call the collaborators endpoint with the right verbs", async () => {
   const { apps, calls } = studio([json(200, listing)]);
@@ -135,10 +137,20 @@ test("app download writes the ZIP and refuses to overwrite without --force", asy
   }
 });
 
-test("app download requires a product ID", async () => {
+test("app download requires a product ID and a value for --out", async () => {
   const { client, calls } = fakeClient();
   await assert.rejects(appCommand(ctx(client, ["app", "download"])), UsageError);
+  await assert.rejects(appCommand(ctx(client, ["app", "download", "app-1"], { out: true })), UsageError);
   assert.equal(calls.length, 0);
+});
+
+test("collaborator removal re-sends its body after a session refresh", async () => {
+  const { apps, calls } = studio([json(401, { error: "Unauthorized" }), json(200, listing)]);
+  await apps.collaborators.remove({ productId: "app-1", username: "alice" });
+  assert.deepEqual(calls.map(({ method, body, authorization }) => [method, body, authorization]), [
+    ["DELETE", { username: "alice" }, "Bearer jwt-1"],
+    ["DELETE", { username: "alice" }, "Bearer jwt-2"],
+  ]);
 });
 
 test("app collaborator routes list, add and remove", async () => {
