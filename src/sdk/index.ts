@@ -9,4 +9,5 @@ export type { CreditGroupGrant, CreditGroupGrantResult } from "./types.js";
 export type { GrantCreditGroupCreditsInput } from "./domains/credit-groups.js";
 export type { CreditGroupUsageGame, CreditGroupUsageResult } from "./types.js";
 export type { CreditGroupUsageInput } from "./domains/credit-groups.js";
-export type { PublishScoringInput, PublishScoringResult } from "./domains/apps.js";
+export type { PublishScoringInput, PublishScoringResult, AppSourceDownload } from "./domains/apps.js";
+export type { AppCollaborator, AppCollaboratorsResult } from "./types.js";

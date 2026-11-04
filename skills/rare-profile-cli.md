@@ -118,6 +118,21 @@ rare-profile app scoring <app-id> --zip ./game-v2.zip --max-attempts 20
 This registers scoring only; it does not create a credit group or attach the app
 to one. Complete those as a separate platform configuration step.
 
+## Collaborating on an app
+
+The owner shares an app by Studio username; collaborators download the current
+build and deploy new versions of it:
+
+```sh
+rare-profile app collaborator add <app-id> <username>
+rare-profile app collaborator list <app-id>
+rare-profile app download <app-id> --out ./current.zip
+rare-profile app update <app-id> --zip ./next.zip
+rare-profile app collaborator remove <app-id> <username>
+```
+
+Only the owner can add or remove collaborators or change price and availability.
+
 ## Shared game credits
 
 Use a feature-enabled CLI release. A group owner can register any existing hosted

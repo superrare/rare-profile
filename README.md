@@ -227,7 +227,19 @@ rare-profile product browse --filter featured
 rare-profile app deploy --store <storefrontId> --title "My Game" --price 0 --zip ./game.zip --max-attempts 20
 rare-profile app update <id> --zip ./game-v2.zip --max-attempts 20
 rare-profile app scoring <id> --zip ./game-v2.zip --max-attempts 20  # retry scoring registration without redeploy
+rare-profile app download <id> --out ./game-current.zip
+rare-profile app collaborator list <id>
+rare-profile app collaborator add <id> <username>
+rare-profile app collaborator remove <id> <username>
 rare-profile app token <id>
+
+An app owner can add collaborators by Studio username. Collaborators can download
+the current ZIP, push new versions with `app update` and edit the app settings;
+price, availability, domains, payments and the collaborator list stay with the
+owner. `app download` saves the ZIP exactly as it was uploaded; versions deployed
+before Studio kept original ZIPs are rebuilt from the deployed files and do not
+include `server-verifier.js`. It refuses to overwrite an existing file unless you
+pass `--force`.
 
 Server-scored game archives must have root `server-verifier.js` and
 `scoring-config.json` (`maxTicks` from 1 to 100000). Deploy/update publishes the
@@ -465,7 +477,7 @@ CLI tokens are granted the following scopes at login (the `purchase` and `wallet
 | `links` | Link CRUD and reordering |
 | `storefronts` | Storefront CRUD |
 | `products` | Product CRUD, file upload, browse |
-| `apps` | App deploy/update, verifier and scoring-event registration, app token |
+| `apps` | App deploy/update/download, collaborators, verifier and scoring-event registration, app token |
 | `posts` | Post CRUD, comments |
 | `social` | Follow/unfollow, feed, followers/following |
 | `messages` | Send/read DMs, user search |

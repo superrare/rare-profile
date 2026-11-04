@@ -98,6 +98,8 @@ const COMMAND_SPECS: CmdSpec[] = [
       ["deploy", "Deploy an app zip (--store --title --price --zip; games also need --max-attempts)"],
       ["update", "Update an app (--zip; games also need --max-attempts)"],
       ["scoring", "Register verifier and scoring event without redeploying"],
+      ["download", "Download the current deployment's ZIP (--out <path>, --force)"],
+      ["collaborator", "Manage collaborators: list <id> | add <id> <username> | remove <id> <username>"],
       ["token", "Grant an app token"],
     ],
   },

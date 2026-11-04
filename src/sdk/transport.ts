@@ -8,11 +8,18 @@ export interface TransportOptions {
   fetchImpl?: typeof fetch;
 }
 
+export interface BinaryResponse {
+  bytes: Uint8Array;
+  headers: Headers;
+}
+
 export interface Transport {
   post<T>(action: string, params: object, schema: ZodType<T>): Promise<T>;
   postAction<T>(path: string, action: string, params: object, schema: ZodType<T>): Promise<T>;
   get<T>(path: string, action: string, schema: ZodType<T>): Promise<T>;
   postJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T>;
+  deleteJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T>;
+  getBytes(path: string, action: string): Promise<BinaryResponse>;
   postArchive<T>(
     path: string,
     params: Record<string, string | undefined>,
@@ -36,7 +43,7 @@ export function createTransport(opts: TransportOptions): Transport {
   }
 
   async function sendJson(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "DELETE",
     path: string,
     body: object | undefined,
     token: string | null,
@@ -61,11 +68,7 @@ export function createTransport(opts: TransportOptions): Transport {
     return { message, code };
   }
 
-  async function requestJson<T>(
-    sendWithToken: (token: string | null) => Promise<Response>,
-    action: string,
-    schema: ZodType<T>,
-  ): Promise<T> {
+  async function sendWithRefresh(sendWithToken: (token: string | null) => Promise<Response>): Promise<Response> {
     let res = await sendWithToken(opts.getToken());
     if (res.status === 401) {
       res = await sendWithToken(await opts.refresh());
@@ -73,6 +76,15 @@ export function createTransport(opts: TransportOptions): Transport {
         throw new ProfileAuthError("Authentication failed after token refresh. Run `rare-profile login`.");
       }
     }
+    return res;
+  }
+
+  async function requestJson<T>(
+    sendWithToken: (token: string | null) => Promise<Response>,
+    action: string,
+    schema: ZodType<T>,
+  ): Promise<T> {
+    const res = await sendWithRefresh(sendWithToken);
     const text = await res.text();
     let json: unknown;
     try {
@@ -101,6 +113,29 @@ export function createTransport(opts: TransportOptions): Transport {
 
   async function postJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T> {
     return requestJson((token) => sendJson("POST", path, body, token), action, schema);
+  }
+
+  async function deleteJson<T>(path: string, action: string, body: object, schema: ZodType<T>): Promise<T> {
+    return requestJson((token) => sendJson("DELETE", path, body, token), action, schema);
+  }
+
+  async function getBytes(path: string, action: string): Promise<BinaryResponse> {
+    const res = await sendWithRefresh((token) => fetchImpl(`${baseUrl}${path}`, {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }));
+    if (!res.ok) {
+      const text = await res.text();
+      let json: unknown;
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
+      const detail = errorDetails(json);
+      throw new ProfileApiError(action, res.status, detail.message ?? `Request failed (${res.status})`, detail.code);
+    }
+    return { bytes: new Uint8Array(await res.arrayBuffer()), headers: res.headers };
   }
 
   async function postArchive<T>(
@@ -163,6 +198,8 @@ export function createTransport(opts: TransportOptions): Transport {
     postAction,
     get,
     postJson,
+    deleteJson,
+    getBytes,
     postArchive,
   };
 }
