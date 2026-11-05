@@ -82,3 +82,15 @@ export type Link = z.infer<typeof LinkSchema>;
  * contract is pinned down. Tighten per-endpoint here when a caller depends on fields.
  */
 export const AckSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]);
+
+export const AppCollaboratorSchema = z.object({
+  username: z.string().nullable(),
+  displayName: z.string().nullable(),
+  addedAt: z.string(),
+});
+export type AppCollaborator = z.infer<typeof AppCollaboratorSchema>;
+export const AppCollaboratorsResultSchema = z.object({
+  role: z.enum(["owner", "collaborator"]),
+  collaborators: z.array(AppCollaboratorSchema),
+});
+export type AppCollaboratorsResult = z.infer<typeof AppCollaboratorsResultSchema>;

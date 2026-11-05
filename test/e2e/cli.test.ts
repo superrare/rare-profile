@@ -477,3 +477,50 @@ test("operator usage CLI preserves exact totals, cursor pages, human semantics a
     });
   } finally { await server.close(); }
 });
+
+test("app download --json saves the ZIP and exits 2 instead of overwriting it", async () => {
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/apps/app-1/source": () => ({ json: { zip: "bytes" } }),
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const out = join(home, "current.zip");
+      const first = await runCli(["app", "download", "app-1", "--out", out, "--json"], { home });
+      assert.equal(first.code, 0, first.stderr);
+      const saved = parseJsonStdout<{ ok: boolean; command: string; data: { path: string; bytes: number } }>(first);
+      assert.equal(saved.ok, true);
+      assert.equal(saved.data.path, out);
+      assert.equal(saved.data.bytes, JSON.stringify({ zip: "bytes" }).length);
+
+      const second = await runCli(["app", "download", "app-1", "--out", out, "--json"], { home });
+      assert.equal(second.code, 2);
+      assert.equal(parseJsonStdout<{ ok: boolean }>(second).ok, false);
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("app collaborator add --json posts the username and a missing username exits 2", async () => {
+  const server = await startMockServer({
+    "/auth/cli/exchange": () => ({ json: { sessionToken: "jwt-1" } }),
+    "/api/apps/app-1/collaborators": () => ({ json: { role: "owner", collaborators: [{ username: "alice", displayName: null, addedAt: "2026-11-04T00:00:00Z" }] } }),
+  });
+  try {
+    await withTempHome(async (home) => {
+      await seedConfig(home, server.url);
+      const added = await runCli(["app", "collaborator", "add", "app-1", "alice", "--json"], { home });
+      assert.equal(added.code, 0, added.stderr);
+      const request = server.requests.find((candidate) => candidate.path === "/api/apps/app-1/collaborators");
+      assert.equal(request?.method, "POST");
+      assert.deepEqual(request?.body, { username: "alice" });
+
+      const missing = await runCli(["app", "collaborator", "add", "app-1", "--json"], { home });
+      assert.equal(missing.code, 2);
+    });
+  } finally {
+    await server.close();
+  }
+});

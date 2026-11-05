@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ProfileApiError } from "../errors.js";
 import type { Transport } from "../transport.js";
-import { AckSchema } from "../types.js";
+import { AckSchema, AppCollaboratorsResultSchema } from "../types.js";
 import { encodeBase64, setIfDefined } from "../media.js";
 
 export interface AddAppInput {
@@ -11,6 +11,25 @@ export interface AddAppInput {
 export interface UpdateAppInput {
   productId: string; bytes: Uint8Array; entryPoint?: string;
 }
+export interface AppSourceDownload {
+  bytes: Uint8Array;
+  fileName: string;
+  version: number | null;
+  rebuilt: boolean;
+}
+
+/** Pure: read the download metadata Studio sends with an app source ZIP (no I/O). */
+export function parseAppSourceHeaders(productId: string, headers: Headers): Omit<AppSourceDownload, "bytes"> {
+  const disposition = headers.get("content-disposition") ?? "";
+  const named = /filename="([^"]+)"/.exec(disposition)?.[1];
+  const version = Number(headers.get("x-studio-deployment-version"));
+  return {
+    fileName: named !== undefined && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(named) ? named : `app-${productId}.zip`,
+    version: Number.isSafeInteger(version) && version > 0 ? version : null,
+    rebuilt: headers.get("x-studio-source") === "rebuilt",
+  };
+}
+
 export interface PublishScoringInput {
   productId: string;
   deploymentId: string;
@@ -54,6 +73,8 @@ export function buildUpdateAppParams(input: UpdateAppInput): Record<string, unkn
   setIfDefined(params, "entryPoint", input.entryPoint);
   return params;
 }
+const collaboratorsPath = (productId: string) => `/api/apps/${encodeURIComponent(productId)}/collaborators`;
+
 async function readActiveEvent(t: Transport, productId: string): Promise<{ eventId: string } | null> {
   try {
     return await t.get(`/api/v1/games/${encodeURIComponent(productId)}/scoring/active-event`, "game-scoring-active-event", ActiveEventSchema);
@@ -82,6 +103,21 @@ export function makeAppsDomain(t: Transport) {
 
     /** Register the current deployment's verifier and create its active scoring event. */
     publishScoring: (input: PublishScoringInput) => publishScoring(t, input),
+
+    /** Download the ZIP of the app's current deployment (owner or collaborator). */
+    download: async (input: { productId: string }): Promise<AppSourceDownload> => {
+      const response = await t.getBytes(`/api/apps/${encodeURIComponent(input.productId)}/source`, "download-app");
+      return { bytes: response.bytes, ...parseAppSourceHeaders(input.productId, response.headers) };
+    },
+
+    collaborators: {
+      list: (input: { productId: string }) =>
+        t.get(collaboratorsPath(input.productId), "list-app-collaborators", AppCollaboratorsResultSchema),
+      add: (input: { productId: string; username: string }) =>
+        t.postJson(collaboratorsPath(input.productId), "add-app-collaborator", { username: input.username }, AppCollaboratorsResultSchema),
+      remove: (input: { productId: string; username: string }) =>
+        t.deleteJson(collaboratorsPath(input.productId), "remove-app-collaborator", { username: input.username }, AppCollaboratorsResultSchema),
+    },
   };
 }
 async function publishScoring(t: Transport, input: PublishScoringInput): Promise<PublishScoringResult> {
